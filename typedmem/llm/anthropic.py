@@ -1,4 +1,4 @@
-"""Anthropic provider. Optional dep — install with ``pip install typed-memory[anthropic]``."""
+"""Anthropic provider. Optional dep — install with ``pip install typedmem[anthropic]``."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class AnthropicClient:
         except ImportError as e:
             raise ImportError(
                 "anthropic package is not installed. "
-                "Install with: pip install 'typed-memory[anthropic]'"
+                "Install with: pip install 'typedmem[anthropic]'"
             ) from e
         self._anthropic = anthropic
         self._client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()

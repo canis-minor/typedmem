@@ -3,7 +3,7 @@
 Evolvers read stored memories — symmetric to `Extractor`, which reads text — and produce a list of audited actions. Every action is recorded in an `EvolutionRecord` (returned to the caller) and appended to each affected memory's `metadata["evolution_history"]` (cap of 50 entries).
 
 ```python
-from typed_memory import (
+from typedmem import (
     ContradictionSurfacer, PreferenceDriftDetector,
     GoalResolver, SummaryEvolver,
 )
@@ -47,7 +47,7 @@ class EvolutionResult:
 Pure read. Walks the FLAG-generated `metadata["conflicts_with"]` graph and returns connected components of two or more memories.
 
 ```python
-from typed_memory import ContradictionSurfacer
+from typedmem import ContradictionSurfacer
 
 result = ContradictionSurfacer().evolve(store)
 for record in result.records:
@@ -66,7 +66,7 @@ for cluster in store.contradictions():
 Catches unstable preferences via the `metadata["replace_log"]` that REPLACE writes on every conflict resolution. Annotates the memory with a `drift_flags` entry; does not delete or restructure.
 
 ```python
-from typed_memory import PreferenceDriftDetector
+from typedmem import PreferenceDriftDetector
 
 result = PreferenceDriftDetector(
     min_replaces=3,
@@ -86,7 +86,7 @@ unstable = store.drift_flags(workspace="user_42")
 Matches active goals against recent evidence using a semantic embedder. Strict by default (threshold 0.85). Preserves `previous_status` and `resolved_by` so resolution is one-level reversible.
 
 ```python
-from typed_memory import GoalResolver, HashingEmbeddingProvider, revert_goal_resolution
+from typedmem import GoalResolver, HashingEmbeddingProvider, revert_goal_resolution
 
 embedder = HashingEmbeddingProvider()
 
@@ -108,7 +108,7 @@ revert_goal_resolution(store, goal_id)
 **Non-destructive in v0.4.** Clusters stale memories sharing `(workspace, type, subject)`, asks an LLMClient for one condensed sentence, creates a new memory of `target_type` (default `"fact"`) that links back via `metadata["summarizes"]`. Originals are tagged with `metadata["summarized_by"]` so they don't get clustered again, but they're **never deleted, modified, or superseded**. Destructive compaction is planned for v0.5.
 
 ```python
-from typed_memory import SummaryEvolver, AnthropicClient
+from typedmem import SummaryEvolver, AnthropicClient
 
 SummaryEvolver(
     client=AnthropicClient(),                   # needs [anthropic] extra
@@ -122,7 +122,7 @@ SummaryEvolver(
 Use `FakeClient` to dry-test the clustering / prompt without an API key:
 
 ```python
-from typed_memory import FakeClient
+from typedmem import FakeClient
 SummaryEvolver(FakeClient("..."), min_cluster_size=3).evolve(store)
 ```
 
@@ -136,7 +136,7 @@ for entry in store.evolution_history(memory_id):
 ```
 
 ```bash
-typed-memory history MEMORY_ID
+typedmem history MEMORY_ID
 ```
 
 ## Safety stance

@@ -2,7 +2,7 @@
 
 import pytest
 
-from typed_memory import AnthropicClient, FakeClient, OpenAIClient
+from typedmem import AnthropicClient, FakeClient, OpenAIClient
 
 
 def test_fake_client_constant():
@@ -35,7 +35,7 @@ def test_openai_client_clean_error_without_dep(monkeypatch):
         return real_import(name, *a, **kw)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
-    with pytest.raises(ImportError, match=r"typed-memory\[openai\]"):
+    with pytest.raises(ImportError, match=r"typedmem\[openai\]"):
         OpenAIClient(api_key="ignored")
 
 
@@ -49,5 +49,5 @@ def test_anthropic_client_clean_error_without_dep(monkeypatch):
         return real_import(name, *a, **kw)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
-    with pytest.raises(ImportError, match=r"typed-memory\[anthropic\]"):
+    with pytest.raises(ImportError, match=r"typedmem\[anthropic\]"):
         AnthropicClient(api_key="ignored")

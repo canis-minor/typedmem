@@ -1,6 +1,6 @@
 """GoalResolver: semantic match, dry-run, revert."""
 
-from typed_memory import (
+from typedmem import (
     GoalResolver,
     GoalStatus,
     HashingEmbeddingProvider,

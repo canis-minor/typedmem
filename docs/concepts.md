@@ -7,7 +7,7 @@ Four primitives carry the design.
 A typed dataclass — not just text in a bag.
 
 ```python
-from typed_memory import Memory, Source
+from typedmem import Memory, Source
 
 m = Memory(
     type="claim",
@@ -42,7 +42,7 @@ Fields:
 Without provenance, a `claim` is just a sentence. With it, you can cite, deduplicate, and trust-weight.
 
 ```python
-from typed_memory import Source
+from typedmem import Source
 
 Source(
     document_id="paper_a.pdf",     # opaque, caller-chosen
@@ -70,8 +70,8 @@ store = SQLiteMemoryStore("memories.db", default_workspace="legal")
 CLI:
 
 ```bash
-typed-memory --workspace legal add "..." --type obligation
-typed-memory workspaces
+typedmem --workspace legal add "..." --type obligation
+typedmem workspaces
 ```
 
 ## ConflictPolicy — the intelligence layer

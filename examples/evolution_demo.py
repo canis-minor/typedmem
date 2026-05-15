@@ -7,7 +7,7 @@ AnthropicClient for real LLM summarization.
 
 from datetime import timedelta
 
-from typed_memory import (
+from typedmem import (
     ConflictPolicy,
     ContradictionSurfacer,
     FakeClient,
@@ -22,8 +22,8 @@ from typed_memory import (
     TypePolicy,
     revert_goal_resolution,
 )
-from typed_memory.policy import DEFAULT_POLICIES
-from typed_memory.schema import _now
+from typedmem.policy import DEFAULT_POLICIES
+from typedmem.schema import _now
 
 
 def _engine_with_flag():

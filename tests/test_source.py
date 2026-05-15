@@ -1,6 +1,6 @@
 import pytest
 
-from typed_memory import Source
+from typedmem import Source
 
 
 def test_minimal_source():

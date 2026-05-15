@@ -1,6 +1,6 @@
 import pytest
 
-from typed_memory.schema import GoalStatus, Memory, MemoryType
+from typedmem.schema import GoalStatus, Memory, MemoryType
 
 
 def test_memory_defaults():

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from typed_memory.cli import main
+from typedmem.cli import main
 
 
 def test_add_and_list_and_search(tmp_path: Path, capsys):

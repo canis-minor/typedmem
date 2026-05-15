@@ -1,8 +1,8 @@
 from datetime import timedelta
 
-from typed_memory.retriever import Retriever
-from typed_memory.schema import Memory, MemoryType, _now
-from typed_memory import InMemoryStore as MemoryStore
+from typedmem.retriever import Retriever
+from typedmem.schema import Memory, MemoryType, _now
+from typedmem import InMemoryStore as MemoryStore
 
 
 def _seed():

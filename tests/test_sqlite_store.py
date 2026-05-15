@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from typed_memory import Memory, MemoryType, SQLiteMemoryStore
+from typedmem import Memory, MemoryType, SQLiteMemoryStore
 
 
 def test_round_trip_across_reopen(tmp_path: Path):

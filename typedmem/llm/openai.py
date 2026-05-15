@@ -1,4 +1,4 @@
-"""OpenAI provider. Optional dep — install with ``pip install typed-memory[openai]``."""
+"""OpenAI provider. Optional dep — install with ``pip install typedmem[openai]``."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ class OpenAIClient:
         except ImportError as e:
             raise ImportError(
                 "openai package is not installed. "
-                "Install with: pip install 'typed-memory[openai]'"
+                "Install with: pip install 'typedmem[openai]'"
             ) from e
         self._client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
         self.model = model

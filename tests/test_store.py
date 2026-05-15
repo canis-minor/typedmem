@@ -1,5 +1,5 @@
-from typed_memory.schema import Memory, MemoryType
-from typed_memory import InMemoryStore as MemoryStore
+from typedmem.schema import Memory, MemoryType
+from typedmem import InMemoryStore as MemoryStore
 
 
 def test_add_and_get():

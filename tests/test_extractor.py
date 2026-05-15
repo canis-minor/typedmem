@@ -1,5 +1,5 @@
-from typed_memory.extractor import RuleBasedExtractor
-from typed_memory.schema import MemoryType
+from typedmem.extractor import RuleBasedExtractor
+from typedmem.schema import MemoryType
 
 
 def test_demo_input_yields_language_and_motor():

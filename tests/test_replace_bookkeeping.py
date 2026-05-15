@@ -1,6 +1,6 @@
 """REPLACE adds metadata['replace_log'] + replace_count for drift detection."""
 
-from typed_memory import InMemoryStore, Memory, MemoryType
+from typedmem import InMemoryStore, Memory, MemoryType
 
 
 def test_first_replace_creates_log():

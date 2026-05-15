@@ -5,7 +5,7 @@ Expected: language observation, motor skill observation, (and an emotional
 event when present).
 """
 
-from typed_memory import (
+from typedmem import (
     HashingEmbeddingProvider,
     InMemoryStore,
     MemoryType,

@@ -7,7 +7,7 @@ import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
-from typed_memory import JSONLMemoryStore, MemoryType, SQLiteMemoryStore
+from typedmem import JSONLMemoryStore, MemoryType, SQLiteMemoryStore
 
 
 # ── SQLite ───────────────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ def test_jsonl_v03_records_lift_source_string(tmp_path: Path):
 
 def test_memory_kwarg_source_deprecated(recwarn):
     """v0.3 callers that pass source='rule' still work but get a warning."""
-    from typed_memory import Memory
+    from typedmem import Memory
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         m = Memory(MemoryType.FACT, "x", source="rule")

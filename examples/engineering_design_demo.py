@@ -17,7 +17,7 @@ extract from real text.
 
 import json
 
-from typed_memory import (
+from typedmem import (
     ContradictionSurfacer,
     DomainProfile,
     FakeClient,

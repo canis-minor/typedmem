@@ -1,6 +1,6 @@
 """ContradictionSurfacer: graph traversal over conflicts_with edges."""
 
-from typed_memory import (
+from typedmem import (
     ConflictPolicy,
     ContradictionSurfacer,
     InMemoryStore,
@@ -12,7 +12,7 @@ from typed_memory import (
 
 
 def _flag_engine() -> PolicyEngine:
-    from typed_memory.policy import DEFAULT_POLICIES
+    from typedmem.policy import DEFAULT_POLICIES
     pols = dict(DEFAULT_POLICIES)
     pols["fact"] = TypePolicy(None, False, ConflictPolicy.FLAG)
     return PolicyEngine(pols)

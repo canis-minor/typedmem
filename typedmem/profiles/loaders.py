@@ -18,6 +18,6 @@ def from_yaml(path: str | Path) -> DomainProfile:
     except ImportError as e:
         raise ImportError(
             "yaml support requires the optional dep. "
-            "Install with: pip install 'typed-memory[yaml]'"
+            "Install with: pip install 'typedmem[yaml]'"
         ) from e
     return DomainProfile.from_dict(yaml.safe_load(Path(path).read_text()))

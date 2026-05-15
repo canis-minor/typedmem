@@ -2,7 +2,7 @@
 
 import pytest
 
-from typed_memory import (
+from typedmem import (
     ConflictPolicy,
     DomainProfile,
     Memory,
@@ -10,7 +10,7 @@ from typed_memory import (
     Source,
     TypeSpec,
 )
-from typed_memory.profiles.builtins import BUILTIN_PROFILES
+from typedmem.profiles.builtins import BUILTIN_PROFILES
 
 
 # ── TypeSpec ─────────────────────────────────────────────────────────────────
@@ -143,7 +143,7 @@ def test_policyengine_unknown_type_raises():
 
 
 def test_policyengine_default_fallback():
-    from typed_memory.policy import TypePolicy
+    from typedmem.policy import TypePolicy
     default = TypePolicy(None, False, ConflictPolicy.KEEP_BOTH)
     engine = PolicyEngine(default=default)
     assert engine.policy_for("anything") is default

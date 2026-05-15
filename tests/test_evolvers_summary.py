@@ -2,14 +2,14 @@
 
 from datetime import timedelta
 
-from typed_memory import (
+from typedmem import (
     FakeClient,
     InMemoryStore,
     Memory,
     MemoryType,
     SummaryEvolver,
 )
-from typed_memory.schema import _now
+from typedmem.schema import _now
 
 
 def _stale_cluster(store, n=3):

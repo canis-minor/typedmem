@@ -7,7 +7,7 @@ duplicate records.
 
 import json
 
-from typed_memory import (
+from typedmem import (
     DomainProfile,
     FakeClient,
     LLMExtractor,
@@ -66,7 +66,7 @@ def main() -> None:
         print(f"  sources: {sources}")
 
     print("\n── Retrieval ───")
-    from typed_memory import HashingEmbeddingProvider
+    from typedmem import HashingEmbeddingProvider
     r = Retriever(store, embedder=HashingEmbeddingProvider())
     for hit in r.relevant("blood pressure drop"):
         print(f"  {hit.score:.2f}  [{hit.memory.type}] {hit.memory.content}")

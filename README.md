@@ -2,9 +2,9 @@
 
 **Typed, policy-aware, evolving memory layer for AI agents.**
 
-[![CI](https://github.com/ruxiz/typed-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/ruxiz/typed-memory/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/typed-memory.svg)](https://pypi.org/project/typed-memory/)
-[![Python](https://img.shields.io/pypi/pyversions/typed-memory.svg)](https://pypi.org/project/typed-memory/)
+[![CI](https://github.com/canis-minor/typedmem/actions/workflows/ci.yml/badge.svg)](https://github.com/canis-minor/typedmem/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/typedmem.svg)](https://pypi.org/project/typedmem/)
+[![Python](https://img.shields.io/pypi/pyversions/typedmem.svg)](https://pypi.org/project/typedmem/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 TypedMemory is the layer that sits between data and reasoning. Every memory has a **type** (claim, decision, observation, …), a **confidence**, a **structured source**, a **lifecycle policy**, and a **workspace** — not just a string in a vector database. Memories know how to update themselves on conflict, how to decay, and how to be summarized.
@@ -42,16 +42,16 @@ TypedMemory handles these as first-class concepts, not bolt-ons.
 ## Install
 
 ```bash
-pip install typed-memory
+pip install typedmem
 ```
 
 Optional extras:
 
 ```bash
-pip install 'typed-memory[anthropic]'    # AnthropicClient
-pip install 'typed-memory[openai]'       # OpenAIClient
-pip install 'typed-memory[yaml]'         # DomainProfile.from_yaml()
-pip install 'typed-memory[all]'
+pip install 'typedmem[anthropic]'    # AnthropicClient
+pip install 'typedmem[openai]'       # OpenAIClient
+pip install 'typedmem[yaml]'         # DomainProfile.from_yaml()
+pip install 'typedmem[all]'
 ```
 
 Python 3.10+.
@@ -60,7 +60,7 @@ Python 3.10+.
 
 ```python
 import json
-from typed_memory import (
+from typedmem import (
     DomainProfile, FakeClient, LLMExtractor, SQLiteMemoryStore,
 )
 
@@ -104,10 +104,10 @@ for cluster in store.contradictions():
 See [`examples/engineering_design_demo.py`](examples/engineering_design_demo.py) for the full version with audit trail and source provenance, or run:
 
 ```bash
-typed-memory profiles
-typed-memory --profile engineering_design add "..." --document-id design_v3.md
-typed-memory --profile engineering_design list --type decision
-typed-memory evolve --evolver contradictions
+typedmem profiles
+typedmem --profile engineering_design add "..." --document-id design_v3.md
+typedmem --profile engineering_design list --type decision
+typedmem evolve --evolver contradictions
 ```
 
 ## The mental model
@@ -146,7 +146,7 @@ Three backends, one ABC:
 | `SQLiteMemoryStore` | SQLite file | Indexed on `(workspace, type, subject)`; persists embeddings; auto-migrates v0.2 → v0.4 schemas |
 
 ```python
-from typed_memory import SQLiteMemoryStore, DomainProfile
+from typedmem import SQLiteMemoryStore, DomainProfile
 
 store = SQLiteMemoryStore.for_profile(
     DomainProfile.builtin("research_paper"),
@@ -157,7 +157,7 @@ store = SQLiteMemoryStore.for_profile(
 ## Retrieval
 
 ```python
-from typed_memory import HashingEmbeddingProvider, Retriever
+from typedmem import HashingEmbeddingProvider, Retriever
 
 retriever = Retriever(store, embedder=HashingEmbeddingProvider())
 hits = retriever.relevant(
@@ -174,7 +174,7 @@ hits = retriever.relevant(
 Evolvers read stored memories and produce auditable actions.
 
 ```python
-from typed_memory import (
+from typedmem import (
     ContradictionSurfacer, PreferenceDriftDetector,
     GoalResolver, SummaryEvolver,
     HashingEmbeddingProvider, AnthropicClient,
@@ -203,17 +203,17 @@ Every action emits an `EvolutionRecord` (`evolver`, `action`, `input_ids`, `outp
 ## CLI
 
 ```bash
-typed-memory profiles                                            # list built-in domain profiles
-typed-memory --profile research_paper add "..." --document-id paper.pdf
-typed-memory --profile engineering_design list --type decision
-typed-memory search "blood pressure" --type evidence
-typed-memory evolve --evolver contradictions
-typed-memory evolve --evolver goals --apply --threshold 0.9      # dry-run by default
-typed-memory history MEMORY_ID                                   # audit trail for one memory
-typed-memory workspaces
+typedmem profiles                                            # list built-in domain profiles
+typedmem --profile research_paper add "..." --document-id paper.pdf
+typedmem --profile engineering_design list --type decision
+typedmem search "blood pressure" --type evidence
+typedmem evolve --evolver contradictions
+typedmem evolve --evolver goals --apply --threshold 0.9      # dry-run by default
+typedmem history MEMORY_ID                                   # audit trail for one memory
+typedmem workspaces
 ```
 
-Default store: `~/.typed_memory/memories.db` (override with `--store path.db` or `--store path.jsonl`).
+Default store: `~/.typedmem/memories.db` (override with `--store path.db` or `--store path.jsonl`).
 
 ## Status & roadmap
 

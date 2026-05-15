@@ -56,9 +56,9 @@ TypedMemory treats these as first-class concepts.
 
 - :material-console-line: **[CLI](cli.md)**
 
-    `typed-memory` shell tool — `add`, `search`, `evolve`, `history`, …
+    `typedmem` shell tool — `add`, `search`, `evolve`, `history`, …
 
-- :material-source-repository: **[Source on GitHub](https://github.com/ruxiz/typed-memory)**
+- :material-source-repository: **[Source on GitHub](https://github.com/canis-minor/typedmem)**
 
     Code, tests, issues.
 

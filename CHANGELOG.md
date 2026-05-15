@@ -15,7 +15,7 @@ First public release. The library now extracts, stores, retrieves, and **evolves
 - `SummaryEvolver` — **non-destructive**: clusters stale memories by `(workspace, type, subject)`, asks an LLM for one short summary, creates a new memory linked via `metadata["summarizes"]`. Originals never modified or deleted.
 - Every mutating action writes an `EvolutionRecord` into the affected memory's `metadata["evolution_history"]` (capped at 50 entries).
 - Store helpers: `MemoryStore.contradictions()`, `drift_flags()`, `evolution_history(id)`.
-- CLI: `typed-memory evolve --evolver {contradictions,drift,goals} [--apply]`; `typed-memory history MEMORY_ID`.
+- CLI: `typedmem evolve --evolver {contradictions,drift,goals} [--apply]`; `typedmem history MEMORY_ID`.
 
 ### v0.4b — Domain Profiles
 - `TypeSpec` + `DomainProfile` make the type system pluggable.
@@ -26,7 +26,7 @@ First public release. The library now extracts, stores, retrieves, and **evolves
 - `Memory.type` is now a string; `MemoryType` enum stays importable as a back-compat alias.
 - `PolicyEngine` rekeyed to strings; `from_profile()` classmethod.
 - Profile loaders: `from_json()` (stdlib), `from_yaml()` (optional `[yaml]` extra).
-- CLI: `--profile NAME`, `--profile-file PATH`, `typed-memory profiles` subcommand.
+- CLI: `--profile NAME`, `--profile-file PATH`, `typedmem profiles` subcommand.
 
 ### v0.4a — Foundation
 - Structured `Source` provenance (`document_id`, `chunk_id`, `span`, `retrieved_at`, `authority`); `Source.key()` for REINFORCE dedup.

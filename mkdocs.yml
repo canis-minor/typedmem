@@ -1,8 +1,8 @@
 site_name: TypedMemory
 site_description: Typed, policy-aware, evolving memory layer for AI agents.
-site_url: https://ruxiz.github.io/typed-memory/
-repo_url: https://github.com/ruxiz/typed-memory
-repo_name: ruxiz/typed-memory
+site_url: https://canis-minor.github.io/typedmem/
+repo_url: https://github.com/canis-minor/typedmem
+repo_name: canis-minor/typedmem
 
 theme:
   name: material

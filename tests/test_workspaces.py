@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from typed_memory import (
+from typedmem import (
     HashingEmbeddingProvider,
     InMemoryStore,
     JSONLMemoryStore,

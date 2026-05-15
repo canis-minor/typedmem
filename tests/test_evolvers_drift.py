@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 
-from typed_memory import (
+from typedmem import (
     InMemoryStore,
     Memory,
     MemoryType,

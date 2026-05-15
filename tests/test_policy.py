@@ -1,7 +1,7 @@
 from datetime import timedelta
 
-from typed_memory.policy import PolicyEngine
-from typed_memory.schema import Memory, MemoryType, _now
+from typedmem.policy import PolicyEngine
+from typedmem.schema import Memory, MemoryType, _now
 
 
 def test_fact_does_not_decay():

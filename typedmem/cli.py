@@ -1,6 +1,6 @@
-"""``typed-memory`` CLI.
+"""``typedmem`` CLI.
 
-Default store: SQLite at $TYPED_MEMORY_DB or ``~/.typed_memory/memories.db``.
+Default store: SQLite at $TYPEDMEM_DB or ``~/.typedmem/memories.db``.
 Override per invocation with ``--store path.db`` or ``--store path.jsonl``."""
 
 from __future__ import annotations
@@ -32,10 +32,10 @@ from .profiles import BUILTIN_PROFILES, from_json as _profile_from_json, from_ya
 
 
 def _default_store_path() -> Path:
-    env = os.environ.get("TYPED_MEMORY_DB")
+    env = os.environ.get("TYPEDMEM_DB")
     if env:
         return Path(env)
-    return Path.home() / ".typed_memory" / "memories.db"
+    return Path.home() / ".typedmem" / "memories.db"
 
 
 def _load_profile(name: str | None, path: str | None) -> DomainProfile | None:
@@ -225,9 +225,9 @@ def cmd_profiles(args: argparse.Namespace, store: MemoryStore) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="typed-memory", description="Schema-aware memory for AI agents.")
+    p = argparse.ArgumentParser(prog="typedmem", description="Schema-aware memory for AI agents.")
     p.add_argument("--store", type=Path, default=_default_store_path(),
-                   help="path to .db (SQLite) or .jsonl (default: ~/.typed_memory/memories.db)")
+                   help="path to .db (SQLite) or .jsonl (default: ~/.typedmem/memories.db)")
     p.add_argument("--workspace", default="default",
                    help="memory namespace; isolates one agent/domain from another (default: 'default')")
     p.add_argument("--profile", default=None, choices=sorted(BUILTIN_PROFILES.keys()),

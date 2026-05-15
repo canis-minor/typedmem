@@ -1,16 +1,16 @@
 # CLI
 
-After installing TypedMemory, the `typed-memory` shell command is on your PATH.
+After installing TypedMemory, the `typedmem` shell command is on your PATH.
 
 ```bash
-typed-memory --help
+typedmem --help
 ```
 
 ## Global options
 
 | Flag | Default | Notes |
 |---|---|---|
-| `--store PATH` | `~/.typed_memory/memories.db` | `.db` → SQLite, `.jsonl` → JSONL. Override via `$TYPED_MEMORY_DB` |
+| `--store PATH` | `~/.typedmem/memories.db` | `.db` → SQLite, `.jsonl` → JSONL. Override via `$TYPEDMEM_DB` |
 | `--workspace NAME` | `default` | Memory namespace; isolates one agent/domain from another |
 | `--profile NAME` | _(none)_ | Built-in domain profile to bind: validates types and required fields, applies per-type policies |
 | `--profile-file PATH` | _(none)_ | Path to a custom profile in `.json` or `.yaml` |
@@ -22,8 +22,8 @@ typed-memory --help
 Add a memory (or extract from text via `RuleBasedExtractor` if no `--type`).
 
 ```bash
-typed-memory add "I prefer concise answers"
-typed-memory --profile engineering_design add "Use SQLite for storage" \
+typedmem add "I prefer concise answers"
+typedmem --profile engineering_design add "Use SQLite for storage" \
   --type decision --subject storage_backend \
   --document-id design_v1.md --authority 0.95
 ```
@@ -35,8 +35,8 @@ Options: `--type`, `--subject`, `--tags`, `--confidence`, `--document-id`, `--ur
 Semantic search across stored memories. Uses `HashingEmbeddingProvider` by default; `--no-embed` falls back to token overlap.
 
 ```bash
-typed-memory search "blood pressure reduction" --type evidence --limit 5
-typed-memory search "ship" --include-superseded
+typedmem search "blood pressure reduction" --type evidence --limit 5
+typedmem search "ship" --include-superseded
 ```
 
 Options: `--limit`, `--type` (repeatable), `--tag` (repeatable), `--include-superseded`, `--no-embed`, `--dim`.
@@ -46,8 +46,8 @@ Options: `--limit`, `--type` (repeatable), `--tag` (repeatable), `--include-supe
 List stored memories, newest first.
 
 ```bash
-typed-memory list --type observation
-typed-memory --workspace medical list --json
+typedmem list --type observation
+typedmem --workspace medical list --json
 ```
 
 ### `delete`
@@ -55,7 +55,7 @@ typed-memory --workspace medical list --json
 Delete by id.
 
 ```bash
-typed-memory delete MEMORY_ID
+typedmem delete MEMORY_ID
 ```
 
 ### `compact`
@@ -63,7 +63,7 @@ typed-memory delete MEMORY_ID
 Compact a JSONL store (rewrite as one record per live memory).
 
 ```bash
-typed-memory --store memories.jsonl compact
+typedmem --store memories.jsonl compact
 ```
 
 ### `workspaces`
@@ -71,7 +71,7 @@ typed-memory --store memories.jsonl compact
 List workspaces present in the store.
 
 ```bash
-typed-memory workspaces
+typedmem workspaces
 ```
 
 ### `profiles`
@@ -79,7 +79,7 @@ typed-memory workspaces
 List built-in domain profiles and their types.
 
 ```bash
-typed-memory profiles
+typedmem profiles
 ```
 
 ### `evolve`
@@ -87,10 +87,10 @@ typed-memory profiles
 Run an Evolver over the store.
 
 ```bash
-typed-memory evolve --evolver contradictions
-typed-memory evolve --evolver drift --apply
-typed-memory evolve --evolver goals --threshold 0.9            # dry-run
-typed-memory evolve --evolver goals --threshold 0.9 --apply    # commit
+typedmem evolve --evolver contradictions
+typedmem evolve --evolver drift --apply
+typedmem evolve --evolver goals --threshold 0.9            # dry-run
+typedmem evolve --evolver goals --threshold 0.9 --apply    # commit
 ```
 
 | Flag | Notes |
@@ -109,7 +109,7 @@ typed-memory evolve --evolver goals --threshold 0.9 --apply    # commit
 Show the `metadata["evolution_history"]` audit trail for a memory.
 
 ```bash
-typed-memory history MEMORY_ID
+typedmem history MEMORY_ID
 ```
 
 ## Conventions
@@ -122,18 +122,18 @@ typed-memory history MEMORY_ID
 
 ```bash
 # Capture the design discussion
-typed-memory --profile engineering_design --workspace project_x add \
+typedmem --profile engineering_design --workspace project_x add \
   "Use SQLite for storage" --type decision --subject storage_backend \
   --document-id design_v1.md
 
-typed-memory --profile engineering_design --workspace project_x add \
+typedmem --profile engineering_design --workspace project_x add \
   "Switch to PostgreSQL" --type decision --subject storage_backend \
   --document-id design_v2.md
 
 # Look at the active decision and the audit trail
-typed-memory --workspace project_x list --type decision
-typed-memory --workspace project_x list --type decision --include-superseded
+typedmem --workspace project_x list --type decision
+typedmem --workspace project_x list --type decision --include-superseded
 
 # Surface any flagged risks
-typed-memory --workspace project_x evolve --evolver contradictions
+typedmem --workspace project_x evolve --evolver contradictions
 ```

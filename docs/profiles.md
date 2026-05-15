@@ -15,7 +15,7 @@ A `DomainProfile` is the schema layer: which memory types exist for a domain, wh
 | `medical_literature` | + finding, population, intervention, outcome, limitation | **outcome → REINFORCE** across studies |
 
 ```python
-from typed_memory import DomainProfile
+from typedmem import DomainProfile
 
 profile = DomainProfile.builtin("research_paper")
 profile.all_types()       # dict[str, TypeSpec]   — core + domain types merged
@@ -25,7 +25,7 @@ profile.policies()        # dict[str, TypePolicy] — keyed by type name
 ## TypeSpec
 
 ```python
-from typed_memory import TypeSpec, ConflictPolicy
+from typedmem import TypeSpec, ConflictPolicy
 
 TypeSpec(
     name="evidence",
@@ -50,7 +50,7 @@ Required-fields shorthand:
 ### From Python
 
 ```python
-from typed_memory import DomainProfile, TypeSpec, ConflictPolicy
+from typedmem import DomainProfile, TypeSpec, ConflictPolicy
 
 contracts = DomainProfile(
     name="contracts",
@@ -112,7 +112,7 @@ JSON array:""",
 ```
 
 ```python
-from typed_memory.profiles import from_json
+from typedmem.profiles import from_json
 profile = from_json("contracts.json")
 ```
 
@@ -135,7 +135,7 @@ prompt_template: |
 ```
 
 ```python
-from typed_memory.profiles import from_yaml
+from typedmem.profiles import from_yaml
 profile = from_yaml("contracts.yaml")    # requires [yaml] extra
 ```
 

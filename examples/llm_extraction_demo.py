@@ -1,13 +1,13 @@
 """LLM extraction demo using FakeClient (no API key required).
 
 Swap FakeClient for OpenAIClient or AnthropicClient to run against a real
-provider — install with ``pip install 'typed-memory[openai]'`` or
+provider — install with ``pip install 'typedmem[openai]'`` or
 ``[anthropic]``.
 """
 
 import json
 
-from typed_memory import (
+from typedmem import (
     FakeClient,
     HashingEmbeddingProvider,
     InMemoryStore,

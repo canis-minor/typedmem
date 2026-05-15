@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from typed_memory import (
+from typedmem import (
     ExtractionResult,
     FakeClient,
     GoalStatus,

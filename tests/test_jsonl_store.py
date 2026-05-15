@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from typed_memory import JSONLMemoryStore, Memory, MemoryType
+from typedmem import JSONLMemoryStore, Memory, MemoryType
 
 
 def _seed(store):

@@ -1,4 +1,4 @@
-from typed_memory.embeddings import HashingEmbeddingProvider, cosine
+from typedmem.embeddings import HashingEmbeddingProvider, cosine
 
 
 def test_dim_matches_output():

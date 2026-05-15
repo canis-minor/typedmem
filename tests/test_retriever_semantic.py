@@ -1,13 +1,13 @@
 from datetime import timedelta
 
-from typed_memory import (
+from typedmem import (
     HashingEmbeddingProvider,
     InMemoryStore,
     Memory,
     MemoryType,
     Retriever,
 )
-from typed_memory.schema import _now
+from typedmem.schema import _now
 
 
 def test_semantic_beats_token_overlap_on_paraphrase():

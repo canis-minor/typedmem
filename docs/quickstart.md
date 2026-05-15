@@ -3,16 +3,16 @@
 ## Install
 
 ```bash
-pip install typed-memory
+pip install typedmem
 ```
 
 For LLM extraction or richer file formats, add an extra:
 
 ```bash
-pip install 'typed-memory[anthropic]'    # AnthropicClient
-pip install 'typed-memory[openai]'       # OpenAIClient
-pip install 'typed-memory[yaml]'         # DomainProfile.from_yaml()
-pip install 'typed-memory[all]'
+pip install 'typedmem[anthropic]'    # AnthropicClient
+pip install 'typedmem[openai]'       # OpenAIClient
+pip install 'typedmem[yaml]'         # DomainProfile.from_yaml()
+pip install 'typedmem[all]'
 ```
 
 Requires Python 3.10+.
@@ -20,7 +20,7 @@ Requires Python 3.10+.
 ## Your first memory
 
 ```python
-from typed_memory import InMemoryStore, Memory
+from typedmem import InMemoryStore, Memory
 
 store = InMemoryStore()
 m = store.add(Memory(type="fact", content="The sky is blue"))
@@ -32,7 +32,7 @@ print(m.id, m.confidence, m.workspace)
 A `DomainProfile` declares which types exist for a domain and how each behaves on conflict.
 
 ```python
-from typed_memory import DomainProfile, SQLiteMemoryStore, Memory, Source
+from typedmem import DomainProfile, SQLiteMemoryStore, Memory, Source
 
 profile = DomainProfile.builtin("engineering_design")
 store = SQLiteMemoryStore.for_profile(profile, "design.db")
@@ -50,7 +50,7 @@ The `engineering_design` profile sets `decision → SUPERSEDE`: the next decisio
 ## Extracting from text with an LLM
 
 ```python
-from typed_memory import LLMExtractor, AnthropicClient, DomainProfile
+from typedmem import LLMExtractor, AnthropicClient, DomainProfile
 
 extractor = LLMExtractor(
     client=AnthropicClient(),                           # needs [anthropic] extra
@@ -64,7 +64,7 @@ for m in extractor.extract(paper_text, default_source=Source(document_id="paper.
 For tests and offline development, use `FakeClient`:
 
 ```python
-from typed_memory import FakeClient
+from typedmem import FakeClient
 extractor = LLMExtractor(
     client=FakeClient('[{"type": "claim", "content": "X improves Y", "confidence": 0.9}]'),
     profile=DomainProfile.builtin("research_paper"),
@@ -76,7 +76,7 @@ extractor = LLMExtractor(
 ## Retrieval
 
 ```python
-from typed_memory import Retriever, HashingEmbeddingProvider
+from typedmem import Retriever, HashingEmbeddingProvider
 
 r = Retriever(store, embedder=HashingEmbeddingProvider())
 hits = r.relevant("blood pressure reduction", types=["evidence"], limit=5)
@@ -91,7 +91,7 @@ Without an embedder, `relevant()` falls back to token-overlap matching.
 The `Evolver` layer reads stored memories and produces auditable actions.
 
 ```python
-from typed_memory import ContradictionSurfacer, GoalResolver, HashingEmbeddingProvider
+from typedmem import ContradictionSurfacer, GoalResolver, HashingEmbeddingProvider
 
 # Pure read.
 for cluster in store.contradictions():
