@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "typed-memory"
+version = "0.4.0"
+description = "Typed, policy-aware, evolving memory layer for AI agents."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "ruxiz" }]
+keywords = ["ai", "memory", "agents", "llm", "knowledge", "rag", "anthropic", "openai"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/ruxiz/typed-memory"
+Documentation = "https://github.com/ruxiz/typed-memory#readme"
+Repository = "https://github.com/ruxiz/typed-memory"
+Issues = "https://github.com/ruxiz/typed-memory/issues"
+Changelog = "https://github.com/ruxiz/typed-memory/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+openai = ["openai>=1.0"]
+anthropic = ["anthropic>=0.34"]
+yaml = ["PyYAML>=6"]
+docs = ["mkdocs>=1.5", "mkdocs-material>=9.5"]
+all = ["openai>=1.0", "anthropic>=0.34", "PyYAML>=6"]
+
+[project.scripts]
+typed-memory = "typed_memory.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["typed_memory*"]
+exclude = ["tests*", "examples*", "docs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

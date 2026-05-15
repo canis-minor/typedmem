@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# Build artifacts
+build/
+dist/
+*.whl
+*.tar.gz
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Project-local
+*.db
+*.jsonl
+!tests/**/*.jsonl
+memories.db
