@@ -1,7 +1,5 @@
 # TypedMemory
 
-**Typed, policy-aware, evolving memory layer for AI agents.**
-
 [![CI](https://github.com/canis-minor/typedmem/actions/workflows/ci.yml/badge.svg)](https://github.com/canis-minor/typedmem/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/typedmem.svg)](https://pypi.org/project/typedmem/)
 [![Python](https://img.shields.io/pypi/pyversions/typedmem.svg)](https://pypi.org/project/typedmem/)
@@ -9,7 +7,42 @@
 
 📦 [PyPI](https://pypi.org/project/typedmem/) · 📚 [Docs](https://canis-minor.github.io/typedmem/) · 🏷️ [Releases](https://github.com/canis-minor/typedmem/releases) · 📝 [Changelog](CHANGELOG.md)
 
-TypedMemory is the layer that sits between data and reasoning. Every memory has a **type** (claim, decision, observation, …), a **confidence**, a **structured source**, a **lifecycle policy**, and a **workspace** — not just a string in a vector database. Memories know how to update themselves on conflict, how to decay, and how to be summarized.
+> Most AI agents store memory as text.
+>
+> That's why they **contradict themselves**, **forget updates over time**, and **never resolve goals**.
+>
+> **TypedMemory stores memory as structured knowledge — and evolves it.**
+
+```bash
+$ pip install typedmem
+
+$ typedmem --profile engineering_design add \
+    "SQLite handles our single-writer load fine" --type risk --subject storage
+$ typedmem --profile engineering_design add \
+    "SQLite blocks under concurrent writes"     --type risk --subject storage
+
+$ typedmem --profile engineering_design evolve --evolver contradictions
+
+cluster 1 (2 memories):
+  [risk] SQLite handles our single-writer load fine
+  [risk] SQLite blocks under concurrent writes
+```
+
+That's a contradiction surfaced by a one-line evolver. The two memories are still in the store — TypedMemory cross-linked them via `metadata["conflicts_with"]` instead of silently overwriting one with the other.
+
+## What makes TypedMemory different
+
+Most systems **store** memory. TypedMemory **evolves** it.
+
+- **Contradictions get surfaced** — the FLAG policy cross-links conflicting memories so you can see both sides, not just the last write
+- **Preferences get tracked** — every REPLACE writes to `replace_log`; a drift detector flags unstable preferences before they corrupt your agent's behavior
+- **Goals get resolved** — when an event arrives that semantically matches an active goal, the goal flips to `resolved` (with a one-level undo)
+- **Stale memories get summarized** — non-destructively: originals are kept, a new summary memory links back via `metadata["summarizes"]`
+- **Every action leaves an audit trail** — `EvolutionRecord` per change, written into the affected memory's `metadata["evolution_history"]`
+
+Memory becomes a living knowledge layer, not a log.
+
+## How it works
 
 ```
                               ┌──────────────────┐
@@ -26,11 +59,13 @@ TypedMemory is the layer that sits between data and reasoning. Every memory has 
                                non-destructive summarization)
 ```
 
-**Zero runtime dependencies.** Stdlib only. LLM clients, YAML profile loading, and sentence-transformer-style retrieval are optional extras.
+Every memory has a **type** (claim, decision, observation, …), a **confidence**, a **structured source**, a **lifecycle policy**, and a **workspace** — not a string in a vector database. Memories know how to update themselves on conflict, how to decay over time, and how to be summarized.
+
+**Zero runtime dependencies.** Stdlib only. LLM clients, YAML profile loading, and richer embedders are optional extras.
 
 ## Why this exists
 
-Most "AI memory" libraries are wrappers around a vector database. That's fine for "remember what the user said," but it falls apart the moment you want an agent to:
+Most "AI memory" libraries are wrappers around a vector database. That works for "remember what the user said," but it falls apart the moment you want an agent to:
 
 - track **who said what, in which document, at which span** (provenance)
 - handle **the same fact from three sources** without storing it three times (reinforcement)
@@ -44,15 +79,10 @@ TypedMemory handles these as first-class concepts, not bolt-ons.
 ## Install
 
 ```bash
-pip install typedmem
-```
-
-Optional extras:
-
-```bash
-pip install 'typedmem[anthropic]'    # AnthropicClient
-pip install 'typedmem[openai]'       # OpenAIClient
-pip install 'typedmem[yaml]'         # DomainProfile.from_yaml()
+pip install typedmem                       # default install, zero deps
+pip install 'typedmem[anthropic]'          # + AnthropicClient
+pip install 'typedmem[openai]'             # + OpenAIClient
+pip install 'typedmem[yaml]'               # + DomainProfile.from_yaml()
 pip install 'typedmem[all]'
 ```
 

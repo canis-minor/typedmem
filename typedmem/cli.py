@@ -198,8 +198,20 @@ def cmd_evolve(args: argparse.Namespace, store: MemoryStore) -> int:
 
     result = evolver.evolve(store, workspace=args.workspace, dry_run=dry_run)
     print(result.summary())
-    for r in result.records:
-        print(_format_record(r))
+
+    # For contradictions, show the actual memories in each cluster — much
+    # more useful to a human than the bare UUID list of an EvolutionRecord.
+    if evolver_kind == "contradictions" and result.records:
+        by_id = {m.id: m for m in store}
+        for i, r in enumerate(result.records, 1):
+            print(f"\ncluster {i} ({len(r.input_ids)} memories):")
+            for mid in r.input_ids:
+                m = by_id.get(mid)
+                if m is not None:
+                    print(f"  [{m.type}] {m.content}")
+    else:
+        for r in result.records:
+            print(_format_record(r))
     return 0
 
 
