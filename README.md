@@ -7,6 +7,8 @@
 [![Python](https://img.shields.io/pypi/pyversions/typedmem.svg)](https://pypi.org/project/typedmem/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+📦 [PyPI](https://pypi.org/project/typedmem/) · 📚 [Docs](https://canis-minor.github.io/typedmem/) · 🏷️ [Releases](https://github.com/canis-minor/typedmem/releases) · 📝 [Changelog](CHANGELOG.md)
+
 TypedMemory is the layer that sits between data and reasoning. Every memory has a **type** (claim, decision, observation, …), a **confidence**, a **structured source**, a **lifecycle policy**, and a **workspace** — not just a string in a vector database. Memories know how to update themselves on conflict, how to decay, and how to be summarized.
 
 ```
