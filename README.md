@@ -30,6 +30,8 @@ cluster 1 (2 memories):
 
 That's a contradiction surfaced by a one-line evolver. The two memories are still in the store — TypedMemory cross-linked them via `metadata["conflicts_with"]` instead of silently overwriting one with the other.
 
+**Want the 30-second version with no flags?** [`examples/DEMO.md`](examples/DEMO.md) — paste 5 lines, see 4 sentences become 3 typed memories, watch one preference silently replace another.
+
 ## What makes TypedMemory different
 
 Most systems **store** memory. TypedMemory **evolves** it.
