@@ -44,7 +44,7 @@ _PREFERENCE_PATTERNS = [
 ]
 
 _GOAL_PATTERNS = [
-    (re.compile(r"\b(?:i|we|user)\s+(?:want to|plan to|will|am going to|am trying to)\b", re.I), 0.8),
+    (re.compile(r"\b(?:i|we|user|they|she|he)\s+(?:wants?\s+to|plans?\s+to|will|am\s+going\s+to|is\s+going\s+to|am\s+trying\s+to|is\s+trying\s+to)\b", re.I), 0.8),
     (re.compile(r"\b(?:goal|objective|aim)[:\s]", re.I), 0.85),
     (re.compile(r"\blearn(?:ing)? to\b", re.I), 0.7),
 ]
@@ -53,6 +53,12 @@ _FACT_PATTERNS = [
     (re.compile(r"\b(?:is|was|are|were)\s+(?:born|named|aged?)\b", re.I), 0.9),
     (re.compile(r"\bmy name is\b", re.I), 0.95),
     (re.compile(r"\b\d+\s+(?:years?|months?)\s+old\b", re.I), 0.9),
+    # Residence / affiliation — common biographical statements
+    (re.compile(r"\blives?\s+(?:in|at|near)\b", re.I), 0.85),
+    (re.compile(r"\bbased\s+in\b", re.I), 0.85),
+    (re.compile(r"\bworks?\s+(?:at|for|in)\b", re.I), 0.85),
+    (re.compile(r"\bstudies?\s+at\b", re.I), 0.85),
+    (re.compile(r"\b(?:is|am)\s+from\b", re.I), 0.8),
 ]
 
 _EVENT_PATTERNS = [

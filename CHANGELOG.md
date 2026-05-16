@@ -2,6 +2,17 @@
 
 All notable changes to TypedMemory.
 
+## [0.4.1] — 2026-05-16
+
+Quality-of-life patch addressing first-paste UX feedback after the v0.4.0 launch.
+
+### Added
+- `RuleBasedExtractor` now recognizes residence and affiliation patterns: `lives in / lives at / based in / works at / works for / studies at / is from / am from`. These land as `fact` memories so casual biographical statements no longer return "no memories extracted".
+- Goal patterns now match third-person (`user wants to`, `she plans to`, `he is going to`) in addition to first-person. Previously only `i want to` / `we want to` matched.
+
+### Fixed
+- The CLI's `evolve --evolver contradictions` now prints the **contents** of each clustered memory instead of just their UUIDs — readable enough to paste into a README or demo recording.
+
 ## [0.4.0] — 2026-05-15
 
 First public release. The library now extracts, stores, retrieves, and **evolves** structured memory for AI agents — a complete pipeline behind one zero-dependency install.
