@@ -42,6 +42,14 @@ Most systems **store** memory. TypedMemory **evolves** it.
 
 Memory becomes a living knowledge layer, not a log.
 
+## Use cases
+
+- **Debugging hallucinating agents.** When an agent flips its story, you usually have no record of how it got there. With TypedMemory, every state change writes an `EvolutionRecord` into the affected memory's `evolution_history` — `typedmem history <id>` shows you exactly when it changed, what policy fired, and what the previous content was. Contradictions don't disappear under the new write; they get flagged so you can see both sides.
+- **Multi-document research / RAG with provenance.** Each fact carries a list of structured `Source` entries (`document_id`, `chunk_id`, `span`, `authority`). Two papers reporting the same outcome reinforce a single memory instead of producing duplicates. Citations come out of the store automatically.
+- **Long-running personal assistants.** Preferences with REPLACE write to `replace_log`; the `PreferenceDriftDetector` surfaces unstable preferences before they make your agent inconsistent. Stale events get non-destructively summarized into facts.
+- **Design-doc agents.** Decisions use SUPERSEDE — old decisions stay in the store with `superseded_by` pointing forward, so you keep the audit trail without polluting the active view.
+- **Multi-tenant agents** (legal + medical + customer-success on one machine). `workspace` namespaces every memory; no cross-domain collisions.
+
 ## How it works
 
 ```

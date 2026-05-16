@@ -16,6 +16,27 @@ if False:  # TYPE_CHECKING only; avoid hard import cycle
     from ..profiles.base import DomainProfile
 
 
+# Conflict-resolution events go into ``metadata["evolution_history"]`` so
+# the same audit surface that Evolvers populate also covers state changes
+# from the conflict policies — the user doesn't have to know the difference
+# to debug "why did this memory change?".
+def _record_lifecycle_event(m: Memory, *, action: str, input_ids: list[str],
+                            output_ids: list[str], reason: str) -> None:
+    from datetime import datetime, timezone
+    history = m.metadata.setdefault("evolution_history", [])
+    history.append({
+        "evolver": "store",
+        "action": action,
+        "input_ids": input_ids,
+        "output_ids": output_ids,
+        "reason": reason,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    # Same 50-entry cap evolvers use.
+    if len(history) > 50:
+        del history[:-50]
+
+
 class MemoryStore(ABC):
     """Subclasses implement the four primitives below; everything else is
     derived. Backends may override derived methods when SQL can answer faster.
@@ -132,6 +153,7 @@ class MemoryStore(ABC):
             return incoming
 
         if p is ConflictPolicy.REPLACE:
+            old_content = existing.content
             existing.content = incoming.content
             existing.confidence = incoming.confidence
             existing.timestamp = incoming.timestamp
@@ -139,19 +161,33 @@ class MemoryStore(ABC):
             if incoming.sources:
                 existing.sources = list(incoming.sources)
             existing.metadata = {**existing.metadata, **incoming.metadata}
-            # Bookkeeping for PreferenceDriftDetector (v0.4c).
             from datetime import datetime, timezone
             log = existing.metadata.setdefault("replace_log", [])
             log.append(datetime.now(timezone.utc).isoformat())
             if len(log) > 20:
                 del log[:-20]
             existing.metadata["replace_count"] = existing.metadata.get("replace_count", 0) + 1
+            _record_lifecycle_event(
+                existing, action="replaced",
+                input_ids=[existing.id], output_ids=[existing.id],
+                reason=f"content updated (was: {old_content[:60]!r})",
+            )
             existing.touch()
             self._put(existing)
             return existing
 
         if p is ConflictPolicy.SUPERSEDE:
             existing.superseded_by = incoming.id
+            _record_lifecycle_event(
+                existing, action="superseded",
+                input_ids=[existing.id], output_ids=[incoming.id],
+                reason=f"superseded by new {incoming.type}",
+            )
+            _record_lifecycle_event(
+                incoming, action="supersedes",
+                input_ids=[existing.id, incoming.id], output_ids=[incoming.id],
+                reason=f"supersedes earlier {existing.type}: {existing.content[:60]!r}",
+            )
             existing.touch()
             self._put(existing)
             self._put(incoming)
@@ -164,10 +200,16 @@ class MemoryStore(ABC):
             existing.confidence = self.policy.reinforce_confidence(
                 existing.confidence, incoming.confidence, new_unique or incoming.sources,
             )
-            # Tags accumulate; content prefers the higher-confidence version.
             existing.tags = list({*existing.tags, *incoming.tags})
             if incoming.confidence > existing.confidence:
                 existing.content = incoming.content
+            if new_unique:
+                src_ids = ", ".join(s.document_id for s in new_unique)
+                _record_lifecycle_event(
+                    existing, action="reinforced",
+                    input_ids=[existing.id], output_ids=[existing.id],
+                    reason=f"+{len(new_unique)} source(s): {src_ids}",
+                )
             existing.touch()
             self._put(existing)
             return existing
@@ -175,6 +217,16 @@ class MemoryStore(ABC):
         if p is ConflictPolicy.FLAG:
             existing.metadata.setdefault("conflicts_with", []).append(incoming.id)
             incoming.metadata.setdefault("conflicts_with", []).append(existing.id)
+            _record_lifecycle_event(
+                existing, action="flagged",
+                input_ids=[existing.id, incoming.id], output_ids=[existing.id],
+                reason=f"cross-linked to new {incoming.type}: {incoming.content[:60]!r}",
+            )
+            _record_lifecycle_event(
+                incoming, action="flagged",
+                input_ids=[existing.id, incoming.id], output_ids=[incoming.id],
+                reason=f"cross-linked to existing {existing.type}: {existing.content[:60]!r}",
+            )
             existing.touch()
             self._put(existing)
             self._put(incoming)

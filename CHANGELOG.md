@@ -2,6 +2,23 @@
 
 All notable changes to TypedMemory.
 
+## [0.4.2] — 2026-05-16
+
+Conflict resolutions now leave an audit trail — the same surface Evolvers populate. The "debug hallucinating agents" story is finally backed by data you can actually inspect.
+
+### Added
+- `_apply_conflict` writes an `EvolutionRecord`-shaped entry to `metadata["evolution_history"]` for every state change:
+  - **SUPERSEDE** — `superseded` on the old memory + `supersedes` on the new
+  - **REPLACE** — `replaced` with a snippet of the prior content
+  - **REINFORCE** — `reinforced` with the new source ids merged in (only when there are new unique sources)
+  - **FLAG** — `flagged` on both memories, cross-referencing
+- `typedmem history MEMORY_ID` now returns a meaningful lifecycle for memories that were superseded, replaced, reinforced, or flagged. Previously it returned "(no evolution history)" because only Evolver actions wrote to it.
+- README **Use cases** section — debugging hallucinating agents, multi-doc RAG with provenance, long-running personal assistants, design-doc agents, multi-tenant agents.
+
+### Notes
+- KEEP_BOTH intentionally writes nothing — it's not a state change worth logging.
+- `evolver: "store"` distinguishes conflict-resolution entries from Evolver-produced ones in the same history list.
+
 ## [0.4.1] — 2026-05-16
 
 Quality-of-life patch addressing first-paste UX feedback after the v0.4.0 launch.
