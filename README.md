@@ -10,30 +10,23 @@
 
 📦 [PyPI](https://pypi.org/project/typedmem/) · 📚 [Docs](https://canis-minor.github.io/typedmem/) · 🏷️ [Releases](https://github.com/canis-minor/typedmem/releases) · 📝 [Changelog](CHANGELOG.md)
 
-> AI agents start believing their own hallucinations.
->
-> They **contradict themselves silently**, **overwrite past decisions with no audit trail**, and **never resolve goals**.
->
-> **TypedMemory makes that visible.** Structured knowledge, conflict policies, evolution over time.
+## TL;DR
 
-## 5 lines for an agent
+**TypedMemory gives AI agents long-term memory.**
 
-```python
-from typedmem import AgentMemory
+- **`remember`** new information
+- **`recall`** relevant context
+- **`reflect`** and improve over time
 
-mem = AgentMemory(profile="personal", path="agent.db")
+## The problem
 
-mem.remember("User wants to learn Rust by year end")
-mem.remember("User lives in Tokyo")
+AI agents start believing their own hallucinations. They:
 
-hits = mem.recall("what is the user trying to learn?")
-#   → [ScoredMemory(content="User wants to learn Rust...", score=0.78)]
+- **contradict themselves silently** — the last write wins, the conflict disappears
+- **overwrite past decisions with no audit trail** — you can't debug what you can't see
+- **never resolve goals** — yesterday's "I'll do X" looks identical to today's "I did X"
 
-report = mem.reflect()
-#   → AgentMemoryReflection(contradictions=[], drift_records=[], ...)
-```
-
-Four verbs over the whole pipeline: **`remember`** (extract + store), **`recall`** (semantic retrieval), **`reflect`** (run the evolver pipeline), **`forget`** (explicit delete).
+TypedMemory makes that visible.
 
 ## The contradiction-detection moment
 
@@ -54,31 +47,64 @@ cluster 1 (2 memories):
   [risk] [storage] SQLite blocks under concurrent writes
 ```
 
-Two memories cross-linked by the FLAG policy. Both still in the store — no silent overwrite, no lost audit trail. Run `typedmem history <id>` on either to see exactly when and why the state changed.
+Two memories cross-linked by the FLAG policy. Both still in the store — no silent overwrite. Run `typedmem history <id>` on either to see exactly when and why the state changed.
 
-**Want the 30-second no-flags version?** [`examples/DEMO.md`](examples/DEMO.md) — 5 lines, 4 sentences become 3 typed memories, one preference silently REPLACEs another.
+## 5 lines for an agent
 
-**Want the before-vs-after agent story?** [`examples/agent_loop_demo.py`](examples/agent_loop_demo.py) — same 5 user utterances, with and without TypedMemory.
+```python
+from typedmem import AgentMemory
+
+mem = AgentMemory(profile="personal", path="agent.db")
+
+mem.remember("User wants to learn Rust by year end")
+mem.remember("User lives in Tokyo")
+
+hits = mem.recall("what is the user trying to learn?")
+#   → [ScoredMemory(content="User wants to learn Rust...", score=0.78)]
+
+report = mem.reflect()
+#   → AgentMemoryReflection(contradictions=[], drift_records=[], ...)
+```
+
+Four verbs over the whole pipeline: **`remember`** (extract + store), **`recall`** (semantic retrieval), **`reflect`** (run the evolver pipeline), **`forget`** (explicit delete).
+
+**More demos:** [`examples/DEMO.md`](examples/DEMO.md) for the 30-second no-flags paste · [`examples/agent_loop_demo.py`](examples/agent_loop_demo.py) for the before-vs-after agent story.
+
+## Before vs After
+
+| | Without TypedMemory | With TypedMemory |
+|---|---|---|
+| **Agent changes its mind** | Last write silently overwrites | REPLACE policy logs every change to `replace_log`; `PreferenceDriftDetector` flags instability |
+| **Two facts contradict** | One overwrites the other; you'll never know | FLAG cross-links both; `typedmem contradictions` surfaces the cluster |
+| **A decision gets revised** | Old decision lost | SUPERSEDE keeps the audit trail (`old.superseded_by → new.id`); `typedmem history` shows the lifecycle |
+| **Goals accumulate** | They sit there forever, mixing with current intent | `GoalResolver` matches incoming events to active goals and flips them to `resolved` |
+| **Same fact arrives from 3 sources** | 3 duplicate memories | REINFORCE merges into one, unions sources by `(document_id, chunk_id, span)`, boosts confidence |
+| **Stale events pile up** | Search noise grows | `SummaryEvolver` condenses non-destructively; originals link forward via `metadata["summarizes"]` |
 
 ## What makes TypedMemory different
 
 Most systems **store** memory. TypedMemory **evolves** it.
 
-- **Contradictions get surfaced** — the FLAG policy cross-links conflicting memories so you can see both sides, not just the last write
-- **Preferences get tracked** — every REPLACE writes to `replace_log`; a drift detector flags unstable preferences before they corrupt your agent's behavior
-- **Goals get resolved** — when an event arrives that semantically matches an active goal, the goal flips to `resolved` (with a one-level undo)
-- **Stale memories get summarized** — non-destructively: originals are kept, a new summary memory links back via `metadata["summarizes"]`
-- **Every action leaves an audit trail** — `EvolutionRecord` per change, written into the affected memory's `metadata["evolution_history"]`
+- **contradictions are surfaced** (not overwritten)
+- **memory changes are tracked over time** (every conflict resolution leaves a record)
+- **goals are resolved automatically** when matching evidence arrives
+- **stale memory is summarized** non-destructively
+- **every change has an audit trail** — `typedmem history <id>`
 
 Memory becomes a living knowledge layer, not a log.
 
 ## Use cases
 
-- **Debugging hallucinating agents.** When an agent flips its story, you usually have no record of how it got there. With TypedMemory, every state change writes an `EvolutionRecord` into the affected memory's `evolution_history` — `typedmem history <id>` shows you exactly when it changed, what policy fired, and what the previous content was. Contradictions don't disappear under the new write; they get flagged so you can see both sides.
-- **Multi-document research / RAG with provenance.** Each fact carries a list of structured `Source` entries (`document_id`, `chunk_id`, `span`, `authority`). Two papers reporting the same outcome reinforce a single memory instead of producing duplicates. Citations come out of the store automatically.
-- **Long-running personal assistants.** Preferences with REPLACE write to `replace_log`; the `PreferenceDriftDetector` surfaces unstable preferences before they make your agent inconsistent. Stale events get non-destructively summarized into facts.
-- **Design-doc agents.** Decisions use SUPERSEDE — old decisions stay in the store with `superseded_by` pointing forward, so you keep the audit trail without polluting the active view.
-- **Multi-tenant agents** (legal + medical + customer-success on one machine). `workspace` namespaces every memory; no cross-domain collisions.
+**Primary:**
+
+- **Debugging hallucinating agents.** When an agent flips its story, run `typedmem history <id>` and see every state change with reason, timestamp, and previous content. Contradictions surface via `mem.reflect()` instead of disappearing under the next write.
+- **Long-term agent memory** — preferences, goals, drift. `mem.remember()` captures each session's signal. `mem.recall()` lets the next session see the current state. `mem.reflect()` catches preferences that keep flipping and goals that match recent events.
+
+**Also good for:**
+
+- Multi-document research / RAG with structured provenance — `Source(document_id, chunk_id, span, authority)` per memory; REINFORCE merges duplicates across papers
+- Design-doc agents — decisions SUPERSEDE rather than overwriting; full audit trail
+- Multi-tenant agents (legal + medical + customer-success on one machine) — `workspace` isolates each domain
 
 ## How it works
 
