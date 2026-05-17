@@ -1,5 +1,8 @@
 # TypedMemory
 
+**Long-term memory and reflection for AI agents.**
+*Persistent, evolving, context-aware — improves agent behavior over time.*
+
 [![CI](https://github.com/canis-minor/typedmem/actions/workflows/ci.yml/badge.svg)](https://github.com/canis-minor/typedmem/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/typedmem.svg)](https://pypi.org/project/typedmem/)
 [![Python](https://img.shields.io/pypi/pyversions/typedmem.svg)](https://pypi.org/project/typedmem/)
@@ -7,11 +10,32 @@
 
 📦 [PyPI](https://pypi.org/project/typedmem/) · 📚 [Docs](https://canis-minor.github.io/typedmem/) · 🏷️ [Releases](https://github.com/canis-minor/typedmem/releases) · 📝 [Changelog](CHANGELOG.md)
 
-> Most AI agents store memory as text.
+> AI agents start believing their own hallucinations.
 >
-> That's why they **contradict themselves**, **forget updates over time**, and **never resolve goals**.
+> They **contradict themselves silently**, **overwrite past decisions with no audit trail**, and **never resolve goals**.
 >
-> **TypedMemory stores memory as structured knowledge — and evolves it.**
+> **TypedMemory makes that visible.** Structured knowledge, conflict policies, evolution over time.
+
+## 5 lines for an agent
+
+```python
+from typedmem import AgentMemory
+
+mem = AgentMemory(profile="personal", path="agent.db")
+
+mem.remember("User wants to learn Rust by year end")
+mem.remember("User lives in Tokyo")
+
+hits = mem.recall("what is the user trying to learn?")
+#   → [ScoredMemory(content="User wants to learn Rust...", score=0.78)]
+
+report = mem.reflect()
+#   → AgentMemoryReflection(contradictions=[], drift_records=[], ...)
+```
+
+Four verbs over the whole pipeline: **`remember`** (extract + store), **`recall`** (semantic retrieval), **`reflect`** (run the evolver pipeline), **`forget`** (explicit delete).
+
+## The contradiction-detection moment
 
 ```bash
 $ pip install typedmem
@@ -21,16 +45,20 @@ $ typedmem --profile engineering_design add \
 $ typedmem --profile engineering_design add \
     "SQLite blocks under concurrent writes"     --type risk --subject storage
 
-$ typedmem --profile engineering_design evolve --evolver contradictions
+$ typedmem --profile engineering_design contradictions
+
+1 contradiction cluster(s):
 
 cluster 1 (2 memories):
-  [risk] SQLite handles our single-writer load fine
-  [risk] SQLite blocks under concurrent writes
+  [risk] [storage] SQLite handles our load fine
+  [risk] [storage] SQLite blocks under concurrent writes
 ```
 
-That's a contradiction surfaced by a one-line evolver. The two memories are still in the store — TypedMemory cross-linked them via `metadata["conflicts_with"]` instead of silently overwriting one with the other.
+Two memories cross-linked by the FLAG policy. Both still in the store — no silent overwrite, no lost audit trail. Run `typedmem history <id>` on either to see exactly when and why the state changed.
 
-**Want the 30-second version with no flags?** [`examples/DEMO.md`](examples/DEMO.md) — paste 5 lines, see 4 sentences become 3 typed memories, watch one preference silently replace another.
+**Want the 30-second no-flags version?** [`examples/DEMO.md`](examples/DEMO.md) — 5 lines, 4 sentences become 3 typed memories, one preference silently REPLACEs another.
+
+**Want the before-vs-after agent story?** [`examples/agent_loop_demo.py`](examples/agent_loop_demo.py) — same 5 user utterances, with and without TypedMemory.
 
 ## What makes TypedMemory different
 

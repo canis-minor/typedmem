@@ -2,6 +2,25 @@
 
 All notable changes to TypedMemory.
 
+## [0.5.0] — 2026-05-16
+
+Positioning shift: **long-term memory + reflection layer for AI agents.** Same primitives underneath, but now there's a clean four-verb front door for agent frameworks to plug into, and the README leads with what the library *does for an agent* rather than how it's structured underneath.
+
+### Added
+- **`AgentMemory` class** — the four-verb contract over the whole pipeline:
+  - `remember(text, *, subject=None, source=None)` — extracts + stores; returns the memories added.
+  - `recall(query, *, limit=10, types=None, tags=None, since=None)` — semantic + recency + confidence blend, scoped to this agent's workspace.
+  - `reflect(*, dry_run=False, include_summary=False)` — runs the evolver pipeline (contradictions / drift / goals / optional LLM summarization) and returns an `AgentMemoryReflection`.
+  - `forget(memory_id)` — explicit deletion for privacy / cleanup.
+- **`AgentMemoryReflection` dataclass** — aggregated reflection result with a one-line `.summary()` for logging.
+- **`typedmem contradictions` CLI verb** — first-class subcommand for the killer feature. Same logic as `evolve --evolver contradictions` but shorter to type and recommend.
+- **`examples/agent_loop_demo.py`** — before-vs-after demo: five user utterances, run twice, only the second run can answer "what does the user prefer right now?" or "are they flipping a lot?".
+- **README rewrite** — leads with the four-verb agent API; sharpened opening hook ("AI agents start believing their own hallucinations").
+
+### Notes
+- `AgentMemory` is purely a wrapper around existing primitives — no new logic, no behavior change. v0.4.x code using `MemoryStore` / `Retriever` / Evolvers directly continues to work unchanged.
+- The agent-loop demo intentionally uses only the default `personal` profile and the rule-based extractor; no LLM key required.
+
 ## [0.4.2] — 2026-05-16
 
 Conflict resolutions now leave an audit trail — the same surface Evolvers populate. The "debug hallucinating agents" story is finally backed by data you can actually inspect.

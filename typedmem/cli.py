@@ -160,6 +160,26 @@ def cmd_compact(args: argparse.Namespace, store: MemoryStore) -> int:
     return 1
 
 
+def cmd_contradictions(args: argparse.Namespace, store: MemoryStore) -> int:
+    """First-class verb for the killer feature: surface contradiction clusters.
+
+    Identical output to ``typedmem evolve --evolver contradictions`` but
+    shorter to type — and easier to recommend in a single tweet.
+    """
+    clusters = store.contradictions(workspace=args.workspace)
+    if not clusters:
+        print("no contradictions")
+        return 0
+    print(f"{len(clusters)} contradiction cluster(s):\n")
+    for i, cluster in enumerate(clusters, 1):
+        print(f"cluster {i} ({len(cluster)} memories):")
+        for m in cluster:
+            subj = f" [{m.subject}]" if m.subject else ""
+            print(f"  [{m.type}]{subj} {m.content}")
+        print()
+    return 0
+
+
 def cmd_workspaces(args: argparse.Namespace, store: MemoryStore) -> int:
     names = store.workspaces()
     if not names:
@@ -310,6 +330,10 @@ def build_parser() -> argparse.ArgumentParser:
     sh = sub.add_parser("history", help="show evolution_history for a memory")
     sh.add_argument("id")
     sh.set_defaults(func=cmd_history)
+
+    sx = sub.add_parser("contradictions",
+                        help="surface contradiction clusters (shortcut for 'evolve --evolver contradictions')")
+    sx.set_defaults(func=cmd_contradictions)
 
     return p
 

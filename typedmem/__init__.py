@@ -1,5 +1,6 @@
 """TypedMemory: structured, policy-aware memory for AI systems."""
 
+from .agent import AgentMemory, AgentMemoryReflection
 from .embeddings import EmbeddingProvider, HashingEmbeddingProvider, cosine
 from .evolvers import (
     ContradictionSurfacer,
@@ -32,10 +33,12 @@ from .stores import (
     SQLiteMemoryStore,
 )
 
-__version__ = "0.4.2"
+__version__ = "0.5.0"
 
 __all__ = [
     "DEFAULT_POLICIES",
+    "AgentMemory",
+    "AgentMemoryReflection",
     "AnthropicClient",
     "ConflictAction",
     "ConflictPolicy",
