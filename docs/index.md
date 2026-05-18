@@ -1,8 +1,10 @@
 # TypedMemory
 
-**Typed, policy-aware, evolving memory layer for AI agents.**
+**Contract-driven memory for AI agents.**
 
-TypedMemory is the layer that sits between data and reasoning. Every memory has a type, a confidence, a structured source, a lifecycle policy, and a workspace — not just a string in a vector database. Memories know how to update on conflict, how to decay, and how to be summarized.
+*Typed schemas. Explicit conflict policies. Structured provenance. Typed event timeline.*
+
+TypedMemory is the layer between data and reasoning where every change is governed by an explicit contract — not learned, not implicit. Every memory has a declared type validated against a profile, a conflict policy that fires deterministically on slot collision, a structured source with dedup identity, and an entry in a first-class event timeline. Memories update on conflict, decay over time, and summarize non-destructively — all under rules you wrote, not rules the system inferred.
 
 ```
                               ┌──────────────────┐

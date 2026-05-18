@@ -1,0 +1,45 @@
+{
+  "name": "typedmem-client",
+  "version": "0.7.0",
+  "description": "TypeScript client for TypedMemory — contract-driven memory for AI agents.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "typedmem",
+    "memory",
+    "agents",
+    "llm",
+    "knowledge"
+  ],
+  "homepage": "https://github.com/canis-minor/typedmem",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/canis-minor/typedmem.git",
+    "directory": "clients/typescript"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}

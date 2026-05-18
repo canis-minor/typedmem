@@ -1,7 +1,7 @@
 # TypedMemory
 
-**Long-term memory and reflection for AI agents.**
-*Persistent, evolving, context-aware — improves agent behavior over time.*
+**Contract-driven memory for AI agents.**
+*Typed schemas. Explicit conflict policies. Structured provenance. Typed event timeline.*
 
 [![CI](https://github.com/canis-minor/typedmem/actions/workflows/ci.yml/badge.svg)](https://github.com/canis-minor/typedmem/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/typedmem.svg)](https://pypi.org/project/typedmem/)
@@ -12,11 +12,14 @@
 
 ## TL;DR
 
-**TypedMemory gives AI agents long-term memory.**
+**Memory you can contract against.** Four explicit contracts make TypedMemory:
 
-- **`remember`** new information
-- **`recall`** relevant context
-- **`reflect`** and improve over time
+- **`DomainProfile`** — typed schema; invalid writes are *rejected*, not "learned"
+- **`ConflictPolicy`** — declarative behaviour on slot collision (`REPLACE` / `SUPERSEDE` / `REINFORCE` / `FLAG` / `KEEP_BOTH` / `IGNORE`)
+- **`Source`** — structured provenance with `(document_id, chunk_id, span)` dedup identity
+- **`MemoryEvent`** — first-class typed change feed (`history` / `timeline` / `changed_since`)
+
+Built for domain apps where *"the memory accepted nonsense"* is a correctness bug.
 
 ## The problem
 
@@ -82,17 +85,27 @@ Four verbs over the whole pipeline: **`remember`** (extract + store), **`recall`
 | **Same fact arrives from 3 sources** | 3 duplicate memories | REINFORCE merges into one, unions sources by `(document_id, chunk_id, span)`, boosts confidence |
 | **Stale events pile up** | Search noise grows | `SummaryEvolver` condenses non-destructively; originals link forward via `metadata["summarizes"]` |
 
-## What makes TypedMemory different
+## The four contracts
 
-Most systems **store** memory. TypedMemory **evolves** it.
+Most memory systems are **learned** — they consolidate, refine, and optimize for retrieval recall. TypedMemory is **contracted** — every state change is governed by rules you declare up front.
 
-- **contradictions are surfaced** (not overwritten)
-- **memory changes are tracked over time** — every add/update/delete/conflict/evolver action emits a `MemoryEvent`; query with `store.history(id)` / `store.timeline(subject=...)` / `store.changed_since(t)`
-- **goals are resolved automatically** when matching evidence arrives
-- **stale memory is summarized** non-destructively
-- **every change has an audit trail** — `typedmem history <id>`
+- **Schema is a contract.** `DomainProfile` + `TypeSpec` declare which memory types exist, what fields they require, and what tags they allow. Writes that don't match are **rejected** (HTTP 422 from the server). The system does not "learn around" your schema.
+- **Behaviour is a contract.** Each type declares a `ConflictPolicy` — what should happen when a new memory hits the same `(workspace, type, subject)` slot. `REPLACE` overwrites and logs. `SUPERSEDE` keeps both with a forward link. `REINFORCE` merges sources and bumps confidence. `FLAG` cross-links contradictions instead of silently picking a winner. Policies are declarative, deterministic, and yours.
+- **Provenance is a contract.** Every memory carries `Source(document_id, chunk_id, span, authority)` — not optional metadata, but the dedup identity used by REINFORCE. Three sources backing the same fact merge into one memory with three sources, not three duplicates.
+- **Evolution is a contract.** Every successful add / update / delete / conflict / evolver action emits a typed `MemoryEvent` to an indexed log. `store.history(id)` answers *"how did this memory change?"*. `store.timeline(subject=…, source=…)` filters across the log. `store.changed_since(t)` is the canonical change feed for sync consumers.
 
-Memory becomes a living knowledge layer, not a log.
+The agent's beliefs are auditable because the contracts are explicit. The whole point: when the memory got something wrong, you can prove *what* changed, *when*, *why*, and *who* did it.
+
+## What TypedMemory is **not**
+
+TypedMemory is intentionally narrow:
+
+- **Not a general-purpose retrieval engine.** We don't compete on benchmark recall. If retrieval quality is your bottleneck, you're in the wrong place.
+- **Not a hosted memory cloud.** The v0.7 server is BYO-deploy: Cloud Run, Docker, systemd — your hosting choice.
+- **Not a plug-and-play layer for agent frameworks.** We don't ship LangChain / CrewAI / AutoGen adapters. The wire format is REST + JSON; bring your own integration.
+- **Not a "memory that learns" black box.** No implicit consolidation, no learned dedup, no opaque merging. Every state change goes through a `ConflictPolicy` you declared.
+
+If those omissions sound like features to you, you're the audience.
 
 ## Use cases
 
@@ -148,10 +161,26 @@ pip install typedmem                       # default install, zero deps
 pip install 'typedmem[anthropic]'          # + AnthropicClient
 pip install 'typedmem[openai]'             # + OpenAIClient
 pip install 'typedmem[yaml]'               # + DomainProfile.from_yaml()
+pip install 'typedmem[server]'             # + HTTP server (FastAPI + uvicorn)
+pip install 'typedmem[gcp]'                # + Cloud Run / Google ID-token auth
 pip install 'typedmem[all]'
 ```
 
 Python 3.10+.
+
+## Run as a service (v0.7+)
+
+Not a Python project? Use typedmem over HTTP:
+
+```bash
+pip install 'typedmem[server]'
+typedmem --store agent.db serve --api-token $(openssl rand -hex 32)
+```
+
+REST API under `/v1/`, interactive docs at `/docs`. Same surface as the
+Python library — `add`, `get`, `delete`, `list`, `recall`, `history`,
+`timeline`, `changed-since`, `reflect`. Works on Cloud Run + GCS FUSE,
+plain Docker, or systemd. Full deploy guide: [`docs/server.md`](docs/server.md).
 
 ## 60-second demo: an engineering design agent
 

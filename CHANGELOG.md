@@ -2,6 +2,59 @@
 
 All notable changes to TypedMemory.
 
+## [0.7.0] — 2026-05-18
+
+**TypedMemory becomes usable from any language.** v0.7 adds an HTTP server that exposes the existing Python surface over REST, plus a first-class TypeScript client. The Python library is unchanged — every Python API works exactly as before. The new server is an optional extra; default install stays zero-dependency.
+
+### Added — HTTP server (`pip install 'typedmem[server]'`)
+
+- **`typedmem serve`** — CLI command that runs the FastAPI server. Flags: `--store`, `--port`, `--host`, `--api-token`, `--identity-audience` (Google ID-token auth), `--cors-origin`, `--instance-name`, `--dim`, `--log-level`. Reads `TYPEDMEM_API_TOKEN` and `PORT` env vars.
+- **REST API under `/v1/`** — every existing Python method has a matching endpoint:
+  - `POST /v1/memories` · `GET/DELETE /v1/memories/:id` · `GET /v1/memories` (list with filters)
+  - `POST /v1/recall` — server-side hashing-embedder semantic match
+  - `GET /v1/memories/:id/history` · `GET /v1/timeline` · `GET /v1/changed-since` — v0.6 event log over HTTP
+  - `POST /v1/reflect` · `GET /v1/contradictions` — evolver pipeline
+  - `GET /v1/workspaces` · `GET /v1/version` · `GET /healthz`
+- **Three auth modes**: bearer token (`--api-token`), Google ID token (`--identity-audience`, for Cloud Run service-to-service IAM), or none (local dev only). Both can be enabled simultaneously — production + local dev side by side. Constant-time token comparison; `google-auth` is lazily imported via the `[gcp]` extra.
+- **`create_app(store, embedder, config)` factory** — library-shaped if you want to mount the FastAPI app inside a larger ASGI server.
+- **Structured error responses**: `ValueError` → 400 (or 422 for profile rejection), `KeyError` → 404. Body shape: `{error, code, details}`. Clients can branch on `code` without string-parsing.
+- **CORS** — opt-in via `--cors-origin` (default off; the server is typically backend-to-backend).
+- **`tests/test_server.py`** — 19 endpoint tests via FastAPI `TestClient`. Skipped if the `[server]` extra isn't installed.
+
+### Added — TypeScript client (`clients/typescript/`)
+
+- **`typedmem-client` npm package** — zero runtime deps, native `fetch`, Node 18+ and modern browsers. Mirrors the Python surface: `add`, `get`, `delete`, `list`, `recall`, `history`, `timeline`, `changedSince`, `reflect`, `contradictions`, `workspaces`, `version`, `healthz`.
+- **Typed errors** — `NotFoundError`, `UnauthenticatedError`, `ProfileValidationError`, generic `TypedMemoryError`. Subclass on `code`, not on string match.
+- **Default workspace per client** — `new TypedMemoryClient({ url, apiToken, workspace })`; every method optionally takes `workspace` to override. Recommended pattern: one workspace per end-user.
+- **19 vitest tests** covering request construction, auth header, query-string encoding, error translation.
+
+### Added — Deploy
+
+- **Dockerfile** — `python:3.12-slim`, non-root user, installs `'typedmem[gcp]'`, default entrypoint `typedmem serve --store /data/agent.db`. Multi-arch (amd64 + arm64) image pushed to `ghcr.io/canis-minor/typedmem:{tag,latest}` on every `v*.*.*` tag.
+- **`.github/workflows/release.yml`** — three publish jobs: PyPI (existing), GHCR Docker image (new), npm publish for the TS client (new, opt-in via `vars.PUBLISH_NPM == 'true'`).
+- **`docs/server.md`** — full deploy guide: local, Cloud Run + GCS FUSE mount, Docker, systemd. Includes a Cloud Run service-to-service IAM walkthrough for ai-life-tracker-style integrations.
+- **`[gcp]` pyproject extra** — pulls in `google-auth` on top of `[server]`. The documented Cloud Run default.
+
+### Changed
+
+- **`[test]` extra adds `httpx`** so server tests can construct a `TestClient`.
+- **CI** runs the test suite with `[test,server]` installed and includes a `ts-client` job that type-checks + tests the TypeScript package on Node 18 and 20.
+- **README** gets a "Run as a service" section linking to `docs/server.md`.
+
+### Not in 0.7.0 (deferred to 0.7.x or later)
+
+- Streaming change feeds (Server-Sent Events / WebSocket on `changed-since`)
+- Per-user or per-workspace API tokens (currently one global token)
+- Sentence-transformer embedder (hashing embedder only)
+- Postgres backend for horizontal scale beyond `--max-instances 1`
+- gRPC, replication, web UI
+
+### Compatibility
+
+- **Wire format is versioned via the URL prefix.** v0.7 speaks `/v1/`. Future breaking changes get a new prefix; existing clients keep working.
+- **TypeScript client major version tracks the server's wire-format version.** `typedmem-client@0.7` talks to `typedmem-server` v0.7.x.
+- Python library API is **backwards-compatible with v0.6.2**.
+
 ## [0.6.2] — 2026-05-18
 
 The v0.6 event log gets a CLI surface, and the CLI stops lying about who wrote what.

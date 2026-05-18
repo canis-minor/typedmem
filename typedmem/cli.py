@@ -340,6 +340,51 @@ def cmd_profiles(args: argparse.Namespace, store: MemoryStore) -> int:
     return 0
 
 
+def cmd_serve(args: argparse.Namespace, store: MemoryStore) -> int:
+    """Run the typedmem HTTP server. Requires the [server] extra.
+
+    Auth precedence: if either ``--api-token`` (or ``TYPEDMEM_API_TOKEN``
+    env) or ``--identity-audience`` is set, requests must present a valid
+    bearer token. With neither set, the server is unauthenticated — local
+    dev only. The two can be combined for the "Cloud Run prod + local
+    dev" pattern: IAM-signed identity tokens in prod, static token at the
+    laptop."""
+    try:
+        import uvicorn
+        from .server import ServerConfig, create_app
+    except ImportError as exc:
+        print(
+            f"error: typedmem serve requires the 'server' extra: {exc}\n"
+            "  install with: pip install 'typedmem[server]'",
+            file=sys.stderr,
+        )
+        return 1
+
+    embedder = HashingEmbeddingProvider(dim=args.dim)
+    config = ServerConfig(
+        api_token=args.api_token or os.environ.get("TYPEDMEM_API_TOKEN"),
+        identity_audience=args.identity_audience,
+        cors_origin=args.cors_origin,
+        instance_name=args.instance_name,
+    )
+    app = create_app(store, embedder=embedder, config=config)
+
+    auth_summary = []
+    if config.api_token:
+        auth_summary.append("bearer-token")
+    if config.identity_audience:
+        auth_summary.append(f"google-id-token(aud={config.identity_audience})")
+    if not auth_summary:
+        auth_summary = ["NONE (local-dev)"]
+    print(
+        f"typedmem serve  store={args.store}  workspace={args.workspace}  "
+        f"auth={','.join(auth_summary)}  → http://{args.host}:{args.port}/",
+        file=sys.stderr,
+    )
+    uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="typedmem", description="Schema-aware memory for AI agents.")
     p.add_argument("--store", type=Path, default=_default_store_path(),
@@ -437,6 +482,26 @@ def build_parser() -> argparse.ArgumentParser:
     sx = sub.add_parser("contradictions",
                         help="surface contradiction clusters (shortcut for 'evolve --evolver contradictions')")
     sx.set_defaults(func=cmd_contradictions)
+
+    ssv = sub.add_parser("serve",
+                         help="run typedmem as an HTTP server (requires the [server] extra)")
+    ssv.add_argument("--host", default="0.0.0.0",
+                     help="bind host (default: 0.0.0.0; Cloud Run requires this)")
+    ssv.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8080")),
+                     help="bind port (default: $PORT or 8080)")
+    ssv.add_argument("--api-token", default=None,
+                     help="bearer token clients must send (or set TYPEDMEM_API_TOKEN env)")
+    ssv.add_argument("--identity-audience", default=None,
+                     help="accept Google-signed ID tokens with this audience; usually the Cloud Run service URL")
+    ssv.add_argument("--cors-origin", default=None,
+                     help="allow CORS from this origin ('*' to allow any; default: no CORS)")
+    ssv.add_argument("--instance-name", default="typedmem",
+                     help="surfaced on /v1/version; useful when running multiple instances")
+    ssv.add_argument("--dim", type=int, default=256,
+                     help="hashing embedder dim (default 256)")
+    ssv.add_argument("--log-level", default="info",
+                     choices=["critical", "error", "warning", "info", "debug"])
+    ssv.set_defaults(func=cmd_serve)
 
     return p
 

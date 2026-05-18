@@ -1,4 +1,16 @@
-"""TypedMemory: structured, policy-aware memory for AI systems."""
+"""TypedMemory: contract-driven memory for AI agents.
+
+Four contracts make a typed memory:
+
+- ``DomainProfile`` + ``TypeSpec``    — schema; what types exist, what's required
+- ``ConflictPolicy``                  — behaviour; how state changes on slot collision
+- ``Source``                          — provenance; structured, with dedup identity
+- ``MemoryEvent``                     — evolution; first-class typed change feed
+
+Every write is validated against the profile, resolved per the policy, attributed
+to its source, and recorded as an event. Nothing implicit, nothing learned by
+magic — the agent's beliefs are auditable because the contracts are explicit.
+"""
 
 from .agent import AgentMemory, AgentMemoryReflection
 from .embeddings import EmbeddingProvider, HashingEmbeddingProvider, cosine
@@ -34,7 +46,7 @@ from .stores import (
     SQLiteMemoryStore,
 )
 
-__version__ = "0.6.2"
+__version__ = "0.7.0"
 
 __all__ = [
     "DEFAULT_POLICIES",
