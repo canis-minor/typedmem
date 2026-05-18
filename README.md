@@ -335,9 +335,13 @@ typedmem --profile engineering_design list --type decision
 typedmem search "blood pressure" --type evidence
 typedmem evolve --evolver contradictions
 typedmem evolve --evolver goals --apply --threshold 0.9      # dry-run by default
-typedmem history MEMORY_ID                                   # audit trail for one memory
+typedmem history MEMORY_ID                                   # per-memory event timeline
+typedmem timeline --subject storage_backend --source evolver # filter the event log
+typedmem changed-since 1h                                    # canonical change feed (also: 5m, 2h, 1d, 1w, or ISO 8601)
 typedmem workspaces
 ```
+
+CLI writes (`add` / `delete`) are tagged `source="user"` in the event log, so `typedmem timeline --source user` shows exactly what a human did at the terminal vs. what an agent or evolver did.
 
 Default store: `~/.typedmem/memories.db` (override with `--store path.db` or `--store path.jsonl`).
 

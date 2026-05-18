@@ -2,6 +2,22 @@
 
 All notable changes to TypedMemory.
 
+## [0.6.2] — 2026-05-18
+
+The v0.6 event log gets a CLI surface, and the CLI stops lying about who wrote what.
+
+### Added
+- **`typedmem timeline`** — filter the event log by `--subject` / `--type` / `--source` / `--all-workspaces`. AND-combined; omit a filter to match anything. `--json` for piping.
+- **`typedmem changed-since <spec>`** — canonical change feed since a point in time. Accepts ISO 8601 (`2026-05-17T12:00:00`) or a relative spec (`5m`, `2h`, `1d`, `1w`, `30s`). Same `--json` flag.
+- **`typedmem history --json`** — emit raw `MemoryEvent` dicts for scripting.
+
+### Changed
+- **`typedmem add` and `typedmem delete` now tag events as `source="user"`** (with `source_name="cli:add"` / `"cli:delete"`). Previously every CLI write looked indistinguishable from a programmatic `store.add()` — `source="store"`. Now `timeline --source user` shows exactly what a human did through the CLI.
+- **`typedmem history` output** gains a source column: `[user/cli:add]`, `[evolver/preference_drift_detector]`, etc. The pre-v0.6.2 format had only `[evolver_name]` which silently labeled `store`-emitted lifecycle events as `[store]`.
+
+### Notes
+- No Python API changes from 0.6.1; this release is CLI surface only.
+
 ## [0.6.1] — 2026-05-18
 
 ### Added

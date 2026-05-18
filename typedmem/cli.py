@@ -8,12 +8,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import (
     ContradictionSurfacer,
     DomainProfile,
+    EVENT_SOURCES,
     GoalResolver,
     HashingEmbeddingProvider,
     JSONLMemoryStore,
@@ -86,7 +89,7 @@ def cmd_add(args: argparse.Namespace, store: MemoryStore) -> int:
             workspace=args.workspace,
             sources=[source] if source else [],
         )
-        store.add(m)
+        store.add(m, event_source="user", event_source_name="cli:add")
         print(f"added 1 memory ({m.type}): {m.id}")
         return 0
     extractor = RuleBasedExtractor()
@@ -97,7 +100,7 @@ def cmd_add(args: argparse.Namespace, store: MemoryStore) -> int:
         print("no memories extracted; pass --type to force a single typed memory", file=sys.stderr)
         return 1
     for m in extracted:
-        store.add(m)
+        store.add(m, event_source="user", event_source_name="cli:add")
     print(f"added {len(extracted)} memorie(s) from extractor")
     for m in extracted:
         print("  " + _fmt(m))
@@ -146,7 +149,7 @@ def cmd_list(args: argparse.Namespace, store: MemoryStore) -> int:
 
 
 def cmd_delete(args: argparse.Namespace, store: MemoryStore) -> int:
-    ok = store.delete(args.id)
+    ok = store.delete(args.id, event_source="user", event_source_name="cli:delete")
     print("deleted" if ok else "not found")
     return 0 if ok else 1
 
@@ -236,13 +239,94 @@ def cmd_evolve(args: argparse.Namespace, store: MemoryStore) -> int:
 
 
 def cmd_history(args: argparse.Namespace, store: MemoryStore) -> int:
-    entries = store.evolution_history(args.id)
-    if not entries:
-        print("(no evolution history)")
+    """Per-memory timeline. v0.6+ output includes the event source so callers
+    can distinguish ``user`` writes from ``agent``/``evolver``/``system``."""
+    events = store.history(args.id)
+    if not events:
+        print("(no history)")
         return 0
-    for e in entries:
-        ts = e.get("timestamp", "?")
-        print(f"{ts}  [{e.get('evolver','?')}] {e.get('action','?')}: {e.get('reason','')}")
+    if args.json:
+        print(json.dumps([e.to_dict() for e in events], indent=2))
+        return 0
+    for e in events:
+        src = f"{e.source}/{e.source_name}" if e.source_name else e.source
+        print(f"{e.timestamp.isoformat()}  [{src}] {e.action}: {e.reason}")
+    return 0
+
+
+def _parse_since(spec: str) -> datetime:
+    """Accept ISO 8601 (``2026-05-17T12:00:00``) or relative spec
+    (``5m`` / ``2h`` / ``3d`` / ``1w`` / ``30s``). Naive ISO inputs are
+    treated as UTC."""
+    spec = spec.strip()
+    m = re.fullmatch(r"(\d+)([smhdw])", spec)
+    if m:
+        n = int(m.group(1))
+        unit = m.group(2)
+        delta = {
+            "s": timedelta(seconds=n),
+            "m": timedelta(minutes=n),
+            "h": timedelta(hours=n),
+            "d": timedelta(days=n),
+            "w": timedelta(weeks=n),
+        }[unit]
+        return datetime.now(timezone.utc) - delta
+    try:
+        dt = datetime.fromisoformat(spec)
+    except ValueError as exc:
+        raise ValueError(
+            f"invalid --since spec: {spec!r}. Use ISO 8601 "
+            "(2026-05-17T12:00:00) or relative ('5m', '2h', '1d', '1w')."
+        ) from exc
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _print_events(events, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps([e.to_dict() for e in events], indent=2))
+        return
+    if not events:
+        print("no events")
+        return
+    for e in events:
+        subj = f" [{e.subject}]" if e.subject else ""
+        src = f"{e.source}/{e.source_name}" if e.source_name else e.source
+        reason = f"  {e.reason}" if e.reason else ""
+        print(
+            f"{e.timestamp.isoformat()}  {e.workspace:<10}  "
+            f"{(e.type or ''):<11}{subj}  ({src}) {e.action}{reason}"
+        )
+
+
+def cmd_timeline(args: argparse.Namespace, store: MemoryStore) -> int:
+    """Filter-based event query. All filters are AND-combined; omit a filter
+    to match anything. Workspace defaults to the global ``--workspace`` arg
+    so the default behaviour matches ``list`` and ``search``; pass
+    ``--all-workspaces`` to audit globally."""
+    workspace = None if args.all_workspaces else args.workspace
+    events = store.timeline(
+        subject=args.subject,
+        type=args.type,
+        workspace=workspace,
+        source=args.source,
+    )
+    _print_events(events, args.json)
+    return 0
+
+
+def cmd_changed_since(args: argparse.Namespace, store: MemoryStore) -> int:
+    """Canonical change feed since a point in time. The same stream a
+    downstream sync consumer would pull periodically — adds, replaces,
+    deletes, and evolver actions."""
+    try:
+        since = _parse_since(args.since)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    events = store.changed_since(since)
+    _print_events(events, args.json)
     return 0
 
 
@@ -327,9 +411,28 @@ def build_parser() -> argparse.ArgumentParser:
                     help="hashing embedder dim (goals only)")
     se.set_defaults(func=cmd_evolve)
 
-    sh = sub.add_parser("history", help="show evolution_history for a memory")
+    sh = sub.add_parser("history", help="show the event timeline for one memory")
     sh.add_argument("id")
+    sh.add_argument("--json", action="store_true", help="emit MemoryEvent dicts as JSON")
     sh.set_defaults(func=cmd_history)
+
+    st = sub.add_parser("timeline",
+                        help="filter the event log by subject / type / workspace / source")
+    st.add_argument("--subject", help="filter events to memories with this subject")
+    st.add_argument("--type", help="filter events to memories of this type")
+    st.add_argument("--source", choices=sorted(EVENT_SOURCES),
+                    help="filter by event source (one of: %(choices)s)")
+    st.add_argument("--all-workspaces", action="store_true",
+                    help="audit across every workspace (default: just the global --workspace)")
+    st.add_argument("--json", action="store_true", help="emit MemoryEvent dicts as JSON")
+    st.set_defaults(func=cmd_timeline)
+
+    scs = sub.add_parser("changed-since",
+                         help="events since a timestamp; the canonical change feed")
+    scs.add_argument("since",
+                     help="ISO 8601 (2026-05-17T12:00:00) or relative ('5m', '2h', '1d', '1w')")
+    scs.add_argument("--json", action="store_true", help="emit MemoryEvent dicts as JSON")
+    scs.set_defaults(func=cmd_changed_since)
 
     sx = sub.add_parser("contradictions",
                         help="surface contradiction clusters (shortcut for 'evolve --evolver contradictions')")
