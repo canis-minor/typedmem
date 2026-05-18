@@ -85,7 +85,7 @@ class GoalResolver:
                 goal.metadata["resolved_by"] = best.memory_id
                 goal.metadata["resolved_score"] = best.score
                 goal.status = "resolved"
-                annotate_history(goal, record)
+                annotate_history(store, goal, record)
                 goal.touch()
                 store._put(goal)
         return EvolutionResult(self.name, records, dry_run)
@@ -121,7 +121,7 @@ def revert(store: "MemoryStore", goal_id: str) -> bool:
         output_ids=[goal_id],
         reason=f"restored status to {prev!r}",
     )
-    annotate_history(m, revert_record)
+    annotate_history(store, m, revert_record)
     m.touch()
     store._put(m)
     return True

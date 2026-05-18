@@ -2,10 +2,15 @@
 
 An ``Evolver`` reads (and optionally mutates) a store, producing a list of
 ``EvolutionRecord``s that explain every action taken. This audit trail is the
-load-bearing piece of v0.4c — without it, an Evolver is a black box that
-silently rewrites state, which destroys trust. Every mutating evolver also
-appends the same record to ``memory.metadata["evolution_history"]`` so the
-provenance travels with the data.
+load-bearing piece of the evolver contract — without it, an Evolver is a
+black box that silently rewrites state, which destroys trust.
+
+v0.6a: every mutating evolver emits a typed ``MemoryEvent`` through the
+store's event log via ``annotate_history(store, memory, record)``.
+The pre-v0.6 behavior of appending to ``memory.metadata["evolution_history"]``
+is gone — the event log is the canonical change feed, the 50-entry cap is
+gone with it, and ``store.evolution_history(memory_id)`` reads the same log
+back in the legacy shape for backward compatibility.
 """
 
 from __future__ import annotations
@@ -20,11 +25,6 @@ if TYPE_CHECKING:
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-# Cap on metadata["evolution_history"] length. Oldest entries are dropped past
-# this. Users who need full history will use v0.5's dedicated log table.
-_HISTORY_CAP = 50
 
 
 @dataclass
@@ -75,10 +75,26 @@ class Evolver(Protocol):
     ) -> EvolutionResult: ...
 
 
-def annotate_history(memory, record: EvolutionRecord) -> None:
-    """Append an EvolutionRecord to a memory's metadata audit trail.
-    Capped at _HISTORY_CAP entries — oldest are dropped past that."""
-    history = memory.metadata.setdefault("evolution_history", [])
-    history.append(record.to_dict())
-    if len(history) > _HISTORY_CAP:
-        del history[:-_HISTORY_CAP]
+def annotate_history(store: "MemoryStore", memory, record: EvolutionRecord) -> None:
+    """Emit a MemoryEvent for an evolver-driven change. ``record.evolver``
+    becomes ``source_name`` on the event; ``source`` is ``"evolver"``.
+
+    Signature changed in v0.6a: takes the store as the first arg. Pre-v0.6
+    callers passing ``(memory, record)`` will see a TypeError — update to
+    the new signature. The metadata write is gone; the event log is the
+    canonical audit trail."""
+    from ..events import MemoryEvent
+    event = MemoryEvent(
+        memory_id=memory.id,
+        workspace=memory.workspace,
+        type=memory.type,
+        subject=memory.subject,
+        action=record.action,
+        source="evolver",
+        source_name=record.evolver,
+        reason=record.reason,
+        input_ids=list(record.input_ids),
+        output_ids=list(record.output_ids),
+        timestamp=record.timestamp,
+    )
+    store._append_event(event)

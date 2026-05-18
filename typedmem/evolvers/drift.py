@@ -91,7 +91,7 @@ class PreferenceDriftDetector:
                     "recent_replaces": len(recent),
                     "window_days": self.window_days,
                 })
-                annotate_history(m, record)
+                annotate_history(store, m, record)
                 m.touch()
                 store._put(m)
         return EvolutionResult(self.name, records, dry_run)

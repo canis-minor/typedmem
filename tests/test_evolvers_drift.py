@@ -34,7 +34,10 @@ def test_above_threshold_emits_record_and_annotates():
     assert len(result.records) == 1
     m = store.by_type(MemoryType.PREFERENCE)[0]
     assert m.metadata.get("drift_flags")
-    assert "evolution_history" in m.metadata
+    assert any(
+        e.source == "evolver" and e.source_name == "preference_drift_detector"
+        for e in store.history(m.id)
+    )
 
 
 def test_dry_run_emits_record_without_annotating():
@@ -44,14 +47,11 @@ def test_dry_run_emits_record_without_annotating():
     assert len(result.records) == 1
     m = store.by_type(MemoryType.PREFERENCE)[0]
     assert "drift_flags" not in m.metadata
-    # Dry-run shouldn't add a drift-detector entry to evolution_history.
-    # (The history may still contain 'replaced' events from setup REPLACEs;
-    # what matters is that the drift detector itself didn't annotate.)
-    drift_entries = [
-        e for e in m.metadata.get("evolution_history", [])
-        if e.get("evolver") == "preference_drift_detector"
+    drift_events = [
+        e for e in store.history(m.id)
+        if e.source_name == "preference_drift_detector"
     ]
-    assert drift_entries == []
+    assert drift_events == []
 
 
 def test_window_excludes_old_replaces():

@@ -27,7 +27,7 @@ def test_matching_event_resolves_goal():
     assert goal.status == GoalStatus.RESOLVED
     assert goal.metadata["resolved_by"] == e.id
     assert goal.metadata["previous_status"] == "active"
-    assert "evolution_history" in goal.metadata
+    assert any(e.source == "evolver" for e in store.history(g.id))
 
 
 def test_below_threshold_no_change():

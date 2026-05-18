@@ -167,12 +167,12 @@ class SummaryEvolver:
                 reason=f"summarized {len(cluster)} stale memories into one {self.target_type}",
             )
             records.append(record)
-            annotate_history(summary, record)
+            annotate_history(store, summary, record)
             # Annotate each original (forward link to summary + audit trail)
             # so subsequent runs skip them in cluster scanning.
             for m in cluster:
                 m.metadata["summarized_by"] = summary.id
-                annotate_history(m, record)
+                annotate_history(store, m, record)
                 store._put(m)
             # Update summary again to persist its own annotation.
             store._put(summary)

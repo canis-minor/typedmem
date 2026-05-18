@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Iterator
 
+from ..events import MemoryEvent
 from ..schema import Memory
 from .base import MemoryStore
 
@@ -14,6 +15,7 @@ class InMemoryStore(MemoryStore):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._items: dict[str, Memory] = {}
+        self._events: list[MemoryEvent] = []
 
     def _put(self, m: Memory) -> None:
         self._items[m.id] = m
@@ -26,6 +28,12 @@ class InMemoryStore(MemoryStore):
 
     def _iter(self) -> Iterator[Memory]:
         return iter(self._items.values())
+
+    def _append_event(self, event: MemoryEvent) -> None:
+        self._events.append(event)
+
+    def _iter_events(self) -> Iterator[MemoryEvent]:
+        return iter(self._events)
 
     def __len__(self) -> int:
         return len(self._items)

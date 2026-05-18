@@ -2,6 +2,7 @@
 
 from .agent import AgentMemory, AgentMemoryReflection
 from .embeddings import EmbeddingProvider, HashingEmbeddingProvider, cosine
+from .events import EVENT_SOURCES, EventSource, MemoryEvent
 from .evolvers import (
     ContradictionSurfacer,
     EvolutionRecord,
@@ -33,10 +34,11 @@ from .stores import (
     SQLiteMemoryStore,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 __all__ = [
     "DEFAULT_POLICIES",
+    "EVENT_SOURCES",
     "AgentMemory",
     "AgentMemoryReflection",
     "AnthropicClient",
@@ -45,6 +47,7 @@ __all__ = [
     "ContradictionSurfacer",
     "DomainProfile",
     "EmbeddingProvider",
+    "EventSource",
     "EvolutionRecord",
     "EvolutionResult",
     "Evolver",
@@ -59,6 +62,7 @@ __all__ = [
     "LLMClient",
     "LLMExtractor",
     "Memory",
+    "MemoryEvent",
     "MemoryStore",
     "MemoryType",
     "OpenAIClient",

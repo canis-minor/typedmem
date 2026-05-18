@@ -148,7 +148,12 @@ class AgentMemory:
             workspace=self.workspace,
             default_source=source,
         )
-        return [self.store.add(m) for m in extracted]
+        return [
+            self.store.add(
+                m, event_source="agent", event_source_name="AgentMemory.remember",
+            )
+            for m in extracted
+        ]
 
     # ── recall ────────────────────────────────────────────────────────────
     def recall(
@@ -222,7 +227,9 @@ class AgentMemory:
     # ── forget ────────────────────────────────────────────────────────────
     def forget(self, memory_id: str) -> bool:
         """Explicit deletion. Returns True if the memory existed."""
-        return self.store.delete(memory_id)
+        return self.store.delete(
+            memory_id, event_source="agent", event_source_name="AgentMemory.forget",
+        )
 
     # ── housekeeping ──────────────────────────────────────────────────────
     def close(self) -> None:

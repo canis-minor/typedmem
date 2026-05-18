@@ -134,12 +134,9 @@ def test_subject_less_memories_never_collide():
     assert len(store) == 2
 
 
-# ── Lifecycle audit trail (v0.4.2) ───────────────────────────────────────────
-def _lifecycle_actions(m: Memory) -> list[str]:
-    return [
-        e["action"] for e in m.metadata.get("evolution_history", [])
-        if e.get("evolver") == "store"
-    ]
+# ── Lifecycle audit trail ────────────────────────────────────────────────────
+def _lifecycle_actions(store, memory_id: str) -> list[str]:
+    return [e.action for e in store.history(memory_id) if e.source == "store"]
 
 
 def test_supersede_writes_audit_on_both_memories():
@@ -147,8 +144,8 @@ def test_supersede_writes_audit_on_both_memories():
     store = InMemoryStore(engine)
     old = store.add(Memory(MemoryType.GOAL, "ship v0.4", subject="proj"))
     new = store.add(Memory(MemoryType.GOAL, "ship v0.5", subject="proj"))
-    assert "superseded" in _lifecycle_actions(store.get(old.id))
-    assert "supersedes" in _lifecycle_actions(store.get(new.id))
+    assert "superseded" in _lifecycle_actions(store, old.id)
+    assert "supersedes" in _lifecycle_actions(store, new.id)
 
 
 def test_replace_writes_audit():
@@ -156,7 +153,7 @@ def test_replace_writes_audit():
     store.add(Memory(MemoryType.PREFERENCE, "v0", subject="u", confidence=0.5))
     store.add(Memory(MemoryType.PREFERENCE, "v1", subject="u", confidence=0.6))
     pref = store.by_type(MemoryType.PREFERENCE)[0]
-    assert "replaced" in _lifecycle_actions(pref)
+    assert "replaced" in _lifecycle_actions(store, pref.id)
 
 
 def test_reinforce_writes_audit_only_for_new_sources():
@@ -170,7 +167,7 @@ def test_reinforce_writes_audit_only_for_new_sources():
         MemoryType.FACT, "X", subject="t", confidence=0.7,
         sources=[Source(document_id="d2")],
     ))
-    assert "reinforced" in _lifecycle_actions(store.get(a.id))
+    assert "reinforced" in _lifecycle_actions(store, a.id)
 
 
 def test_flag_writes_audit_on_both():
@@ -178,13 +175,14 @@ def test_flag_writes_audit_on_both():
     store = InMemoryStore(engine)
     a = store.add(Memory(MemoryType.FACT, "X", subject="t"))
     b = store.add(Memory(MemoryType.FACT, "Y", subject="t"))
-    assert "flagged" in _lifecycle_actions(store.get(a.id))
-    assert "flagged" in _lifecycle_actions(store.get(b.id))
+    assert "flagged" in _lifecycle_actions(store, a.id)
+    assert "flagged" in _lifecycle_actions(store, b.id)
 
 
 def test_keep_both_does_not_write_audit():
-    """KEEP_BOTH is just side-by-side storage, not a state change worth logging."""
+    """KEEP_BOTH is just side-by-side storage; no conflict event is recorded
+    against A when B arrives. A's only event is its own initial 'added'."""
     store = InMemoryStore()  # fact defaults to KEEP_BOTH
     a = store.add(Memory(MemoryType.FACT, "X", subject="t"))
     store.add(Memory(MemoryType.FACT, "Y", subject="t"))
-    assert _lifecycle_actions(store.get(a.id)) == []
+    assert _lifecycle_actions(store, a.id) == ["added"]

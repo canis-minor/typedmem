@@ -74,9 +74,10 @@ Four verbs over the whole pipeline: **`remember`** (extract + store), **`recall`
 
 | | Without TypedMemory | With TypedMemory |
 |---|---|---|
-| **Agent changes its mind** | Last write silently overwrites | REPLACE policy logs every change to `replace_log`; `PreferenceDriftDetector` flags instability |
+| **Agent changes its mind** | Last write silently overwrites | REPLACE policy + `PreferenceDriftDetector` flag instability; the change is recorded in the event log |
 | **Two facts contradict** | One overwrites the other; you'll never know | FLAG cross-links both; `typedmem contradictions` surfaces the cluster |
 | **A decision gets revised** | Old decision lost | SUPERSEDE keeps the audit trail (`old.superseded_by → new.id`); `typedmem history` shows the lifecycle |
+| **"How did the agent's view evolve?"** | You've lost it | `store.timeline(subject="storage_backend")` returns every change with source, reason, and timestamp |
 | **Goals accumulate** | They sit there forever, mixing with current intent | `GoalResolver` matches incoming events to active goals and flips them to `resolved` |
 | **Same fact arrives from 3 sources** | 3 duplicate memories | REINFORCE merges into one, unions sources by `(document_id, chunk_id, span)`, boosts confidence |
 | **Stale events pile up** | Search noise grows | `SummaryEvolver` condenses non-destructively; originals link forward via `metadata["summarizes"]` |
@@ -86,7 +87,7 @@ Four verbs over the whole pipeline: **`remember`** (extract + store), **`recall`
 Most systems **store** memory. TypedMemory **evolves** it.
 
 - **contradictions are surfaced** (not overwritten)
-- **memory changes are tracked over time** (every conflict resolution leaves a record)
+- **memory changes are tracked over time** — every add/update/delete/conflict/evolver action emits a `MemoryEvent`; query with `store.history(id)` / `store.timeline(subject=...)` / `store.changed_since(t)`
 - **goals are resolved automatically** when matching evidence arrives
 - **stale memory is summarized** non-destructively
 - **every change has an audit trail** — `typedmem history <id>`
@@ -239,7 +240,7 @@ Three backends, one ABC:
 |---|---|---|
 | `InMemoryStore` | None | Default; fastest |
 | `JSONLMemoryStore` | Append-only file | Last-write-wins; tombstones; `compact()` rewrites |
-| `SQLiteMemoryStore` | SQLite file | Indexed on `(workspace, type, subject)`; persists embeddings; auto-migrates v0.2 → v0.4 schemas |
+| `SQLiteMemoryStore` | SQLite file | Indexed on `(workspace, type, subject)`; persists embeddings; v0.6 adds a `memory_events` table (timeline); schema auto-migrates from v0.2+ |
 
 ```python
 from typedmem import SQLiteMemoryStore, DomainProfile
@@ -264,6 +265,35 @@ hits = retriever.relevant(
 ```
 
 `relevant()` blends three signals: `semantic` (cosine), `recency` (exponential decay), `confidence` (with type-specific half-life). Without an embedder, falls back to token overlap.
+
+## Timeline (v0.6)
+
+Retrieval answers *"what's true now?"*. The timeline answers *"how did we get here?"*. Every successful add / update / delete / conflict-resolution / evolver action emits a typed `MemoryEvent` into an indexed event log.
+
+```python
+from datetime import datetime, timedelta, timezone
+
+mem.remember("User prefers dark mode")
+mem.remember("Actually, light mode in the morning")
+
+# Everything that ever touched this memory:
+mid = mem.recall("color theme")[0].memory.id
+for e in mem.store.history(mid):
+    print(f"{e.timestamp:%H:%M:%S}  {e.source}/{e.source_name}  {e.action}")
+#   23:58:32  agent/AgentMemory.remember  added
+#   23:58:33  agent/AgentMemory.remember  replaced
+
+# Or filter by subject / type / workspace / source:
+mem.store.timeline(subject="storage_backend", source="evolver")
+
+# Or pull the canonical change feed since a point in time
+# (for sync, replication, downstream notification):
+since = datetime.now(timezone.utc) - timedelta(minutes=10)
+for e in mem.store.changed_since(since):
+    ship_to_downstream(e)
+```
+
+Each event carries `memory_id`, `workspace`, `type`, `subject`, `action`, `source` (one of `"store"` / `"evolver"` / `"agent"` / `"user"` / `"system"`), `source_name`, `reason`, `input_ids`, `output_ids`, `payload`, `timestamp`. Delete events outlive the memory row — `changed_since()` surfaces deletions to consumers staying in sync.
 
 ## Evolution
 
@@ -294,7 +324,7 @@ SummaryEvolver(AnthropicClient(), min_cluster_size=3).evolve(store)
 # Originals untouched; new memory links via metadata["summarizes"].
 ```
 
-Every action emits an `EvolutionRecord` (`evolver`, `action`, `input_ids`, `output_ids`, `reason`, `timestamp`) and gets appended to each affected memory's `metadata["evolution_history"]`. No black-box mutations.
+Every action emits a typed `MemoryEvent` into the store's indexed event log — `source="evolver"`, `source_name="goal_resolver"` (etc.), plus `action`, `input_ids`, `output_ids`, `reason`, `timestamp`. Query with `store.history(memory_id)`, `store.timeline(subject=..., source="evolver")`, or `store.changed_since(t)`. No black-box mutations, no `metadata["evolution_history"]` cap to worry about.
 
 ## CLI
 
@@ -313,10 +343,16 @@ Default store: `~/.typedmem/memories.db` (override with `--store path.db` or `--
 
 ## Status & roadmap
 
-v0.4 is the first public release.
+Latest: **v0.6.0** — typed memory timeline (this release): every change emits a `MemoryEvent`; `store.history()` / `timeline()` / `changed_since()` give you the canonical change feed.
 
-- **v0.5** sentence-transformer embedder, profile composition (`extends`), destructive compaction (`MemoryStore.compact_summaries()`)
-- **v0.6** hybrid BM25+semantic retrieval, query DSL, observability hooks
+Prior: **v0.5.0** — `AgentMemory` four-verb contract (`remember` / `recall` / `reflect` / `forget`); **v0.4.x** — profiles, workspaces, evolvers, conflict-resolution audit trail.
+
+Under consideration for **v0.7+**, only if real usage demands it:
+
+- `VersionPolicy` as a separate per-type axis (deferred from v0.6 — overlapped messily with `ConflictPolicy`)
+- Sync / replication engine on top of `changed_since()`
+- Hybrid BM25 + semantic retrieval
+- Sentence-transformer embedder
 
 What TypedMemory **doesn't** do and doesn't plan to:
 

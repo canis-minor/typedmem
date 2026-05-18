@@ -2,6 +2,36 @@
 
 All notable changes to TypedMemory.
 
+## [0.6.0] — 2026-05-17
+
+**Typed memory timeline.** Agents remember not only what they know, but how their beliefs changed over time. The pre-v0.6 `metadata["evolution_history"]` audit list is promoted into a first-class, indexed event log — every `add` / `update` / `delete` emits a typed `MemoryEvent`, not just contested writes. The event stream is the canonical memory change feed.
+
+### Added
+- **`MemoryEvent` dataclass** (`typedmem.events`) — typed, round-trippable, with fields `memory_id`, `workspace`, `type`, `subject`, `action`, `source`, `source_name`, `reason`, `input_ids`, `output_ids`, `payload`, `timestamp`, `id`.
+- **`EventSource` literal type** — `"store" | "evolver" | "agent" | "user" | "system"`:
+  - `store` — automatic lifecycle from `MemoryStore.add/update/delete`
+  - `evolver` — `ContradictionSurfacer` / `GoalResolver` / `SummaryEvolver` / `PreferenceDriftDetector`
+  - `agent` — caller explicitly tags an agent write (e.g. `AgentMemory.remember`)
+  - `user` — caller explicitly tags a human action
+  - `system` — migration, import, maintenance (e.g. lazy `evolution_history` migration)
+- **Timeline query APIs** on every store:
+  - `store.history(memory_id)` — every event for one memory, oldest first; includes the `deleted` event even after the memory row is gone.
+  - `store.timeline(subject=..., type=..., workspace=..., source=...)` — filtered event stream.
+  - `store.changed_since(timestamp)` — canonical change feed for consumers staying in sync; includes adds, updates, deletes, and evolver-driven transforms.
+- **Event-source kwargs on the public API**: `store.add(memory, event_source="agent", event_source_name="agent_loop")` and `store.delete(memory_id, event_source=..., event_source_name=...)`. Defaults are `"store"` / `None`, preserving all v0.5 call sites.
+- **`AgentMemory.remember()`** passes `event_source="agent"`, `event_source_name="AgentMemory.remember"`; `AgentMemory.forget()` passes `event_source="agent"`, `event_source_name="AgentMemory.forget"`.
+- **SQLite `memory_events` table** with indexes on `memory_id`, `workspace`, `(workspace, type)`, `(workspace, type, subject)`, `timestamp`. Schema upgrades automatically on first open of an existing v0.5 database.
+- **JSONLMemoryStore sidecar `.events.jsonl`** file. Memory file `compact()` does NOT compact events — the timeline is the historical record.
+
+### Changed
+- **`_record_lifecycle_event`** and **`annotate_history`** now write to the event log instead of `metadata["evolution_history"]`. The 50-entry-per-memory cap is gone.
+- **`annotate_history(memory, record)` → `annotate_history(store, memory, record)`** — signature changed; callers in `drift.py`, `goals.py`, `summary.py` updated. External callers using the pre-v0.6 signature will see `TypeError` — update to the new signature.
+- **`store.evolution_history(memory_id)`** still returns `list[dict]` in the pre-v0.6 shape, but is now backed by the event log. Entries that lived in `metadata["evolution_history"]` migrate lazily on first access with `source="system"`, `source_name="migrate_evolution_history"`.
+
+### Not in 0.6
+- `VersionPolicy` as a separate axis (`HISTORY` / `IMMUTABLE` etc.) — deferred to 0.7. Overlapped with `ConflictPolicy` in confusing ways (`HISTORY` + `REPLACE` is a contradiction; `IMMUTABLE` mostly duplicates `IGNORE`/`FLAG`). Will revisit only if real usage shows per-type timeline behavior needs to differ.
+- Sync engine, replication, event replay — `changed_since()` is the quiet side door, but not yet a full mechanism.
+
 ## [0.5.0] — 2026-05-16
 
 Positioning shift: **long-term memory + reflection layer for AI agents.** Same primitives underneath, but now there's a clean four-verb front door for agent frameworks to plug into, and the README leads with what the library *does for an agent* rather than how it's structured underneath.
