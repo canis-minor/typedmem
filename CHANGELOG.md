@@ -2,6 +2,14 @@
 
 All notable changes to TypedMemory.
 
+## [0.6.1] — 2026-05-18
+
+### Added
+- **`examples/belief_refinement_demo.py`** — the canonical v0.6 use case in 60 lines. Simulates four conversations refining the agent's model of a user's testing preferences and walks through `store.history()`, `store.changed_since()`, and the backwards-compatible `store.evolution_history()`. Belief *refinement* over time, not contrived flip-flop reversals.
+
+### Notes
+- No API or behavior changes from 0.6.0; this is a docs-and-demo patch.
+
 ## [0.6.0] — 2026-05-17
 
 **Typed memory timeline.** Agents remember not only what they know, but how their beliefs changed over time. The pre-v0.6 `metadata["evolution_history"]` audit list is promoted into a first-class, indexed event log — every `add` / `update` / `delete` emits a typed `MemoryEvent`, not just contested writes. The event stream is the canonical memory change feed.
