@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "typedmem"
-version = "0.7.0"
+version = "0.7.3"
 description = "Contract-driven memory for AI agents — typed schemas, explicit conflict policies, structured provenance, typed event timeline."
 readme = "README.md"
 requires-python = ">=3.10"

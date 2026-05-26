@@ -2,6 +2,24 @@
 
 All notable changes to TypedMemory.
 
+## [0.7.3] — 2026-05-25
+
+CI/release pipeline catches up to the v0.7.0 surface; `typedmem-client` ships to npm. No Python API changes.
+
+### Added
+- **`typedmem-client@0.7.3` published to npm** — first publish of the TypeScript client. Install with `npm install typedmem-client`. Gated on the `PUBLISH_NPM` repo variable + `NPM_TOKEN` secret (set both before tagging).
+
+### Changed
+- **CI** now installs `pip install -e ".[test,server]"` so `tests/test_server.py` actually runs (previously skipped via `pytest.importorskip("fastapi")` because `[server]` wasn't installed).
+- **CI** adds a new `ts-client` job that type-checks (`tsc --noEmit`), runs vitest, and builds the TypeScript client on Node 18 and Node 20.
+- **`release.yml`** adds two publish jobs on `v*.*.*` tag push:
+  - **GHCR Docker image** — multi-arch (amd64 + arm64), pushed to `ghcr.io/${owner}/typedmem:{version,latest}`. Uses `GITHUB_TOKEN`, no extra secrets needed.
+  - **npm publish for `typedmem-client`** — gated on `vars.PUBLISH_NPM == 'true'`. Syncs `package.json` version to the git tag before publishing.
+- **`.dockerignore`** added — drops `.git/`, `node_modules/`, `clients/`, `tests/`, `examples/`, `docs/`, `*.db`, and Python build artifacts so the GHCR image stays small.
+
+### Why this patch
+v0.7.0 and v0.7.1 shipped without these CI/release files; server tests were silently skipped in CI, no Docker image was published on tag, and the TypeScript client was unreachable for non-Python consumers. This release lands the pipeline that v0.7.0 always assumed and opens the npm distribution channel.
+
 ## [0.7.0] — 2026-05-18
 
 **TypedMemory becomes usable from any language.** v0.7 adds an HTTP server that exposes the existing Python surface over REST, plus a first-class TypeScript client. The Python library is unchanged — every Python API works exactly as before. The new server is an optional extra; default install stays zero-dependency.
