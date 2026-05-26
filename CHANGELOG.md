@@ -2,6 +2,22 @@
 
 All notable changes to TypedMemory.
 
+## [0.7.4] — 2026-05-26
+
+**Hotfix: `typedmem-client` now dual-package (ESM + CJS).** v0.7.3 published as ESM-only, which broke every CJS consumer using `require('typedmem-client')` with `ERR_PACKAGE_PATH_NOT_EXPORTED`. This release ships both formats.
+
+### Fixed
+- **`typedmem-client@0.7.4`** now exports both ESM (`./dist/index.js`) and CJS (`./dist/index.cjs`) from a single source. `require('typedmem-client')` and `import "typedmem-client"` both work on Node 18+. Existing v0.7.3 ESM-only callers continue to work unchanged.
+- **Build switched to [tsup](https://tsup.egoist.dev/)** — handles the import-extension rewriting that plain `tsc` gets wrong when targeting both formats from the same `.ts` sources. Adds `tsup` as a devDependency; runtime dependencies remain zero.
+- **`package.json` exports map** declares both entry points: `{ "import": "./dist/index.js", "require": "./dist/index.cjs" }`, plus `.d.ts` and `.d.cts` for TypeScript consumers on either side.
+
+### Notes
+- **Python package (`typedmem` on PyPI) is unchanged.** Version bumped to 0.7.4 only to keep the typedmem-server / typedmem-client version pairs in lockstep. No Python API or behavior change from 0.7.3.
+- **Docker image (`ghcr.io/canis-minor/typedmem:0.7.4`) is unchanged behavior**; rebuild only because the tag triggered it.
+
+### Friction-log entry that produced this fix
+First non-trivial consumer (ai-life-tracker's CJS Node backend) hit `ERR_PACKAGE_PATH_NOT_EXPORTED` on first `require('typedmem-client')`. The library should have been dual-package from v0.7.0; the test suite caught nothing because the tests themselves are ESM. Adding a CJS smoke test to CI is worth a follow-up.
+
 ## [0.7.3] — 2026-05-25
 
 CI/release pipeline catches up to the v0.7.0 surface; `typedmem-client` ships to npm. No Python API changes.
