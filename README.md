@@ -1,3 +1,5 @@
+> This repository is part of the **[Reliable Long-Running Agents (RLRA)](https://github.com/canis-minor)** research initiative.
+
 # TypedMemory
 
 **Contract-driven memory for AI agents.**
