@@ -10,6 +10,7 @@ import pytest
 
 from typedmem import (
     ConcurrencyError,
+    ConfidenceStrategy,
     ConflictPolicy,
     FakeClient,
     GoalResolver,
@@ -21,6 +22,7 @@ from typedmem import (
     MemoryType,
     PolicyEngine,
     PreferenceDriftDetector,
+    Retriever,
     SQLiteMemoryStore,
     Source,
     SummaryEvolver,
@@ -251,3 +253,24 @@ def test_no_mutation_escapes_the_engine():
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+# ── pluggable ConfidenceStrategy (decay routed through it) ─────────────────
+class _ZeroDecay(ConfidenceStrategy):
+    """Reinforce is a no-op; decay always collapses to 0.0."""
+
+    def reinforce(self, c_old, c_new, new_sources):
+        return c_old
+
+    def decay(self, m, now=None):
+        return 0.0
+
+
+def test_custom_confidence_decay_is_used_by_retriever():
+    store = InMemoryStore(confidence=_ZeroDecay())
+    store.add(Memory(MemoryType.PREFERENCE, "espresso", subject="coffee", confidence=0.9))
+    r = Retriever(store)
+    # Decay is forced to 0 → nothing clears the threshold when decay is applied.
+    assert r.by_confidence(threshold=0.5, apply_decay=True) == []
+    # ...but the raw (undecayed) confidence still does.
+    assert len(r.by_confidence(threshold=0.5, apply_decay=False)) == 1

@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from .embeddings import EmbeddingProvider, cosine
+from .kernel import PolicyConfidenceStrategy
 from .policy import PolicyEngine
 from .schema import Memory, MemoryType
 from .stores.base import MemoryStore
@@ -51,6 +52,11 @@ class Retriever:
     ) -> None:
         self.store = store
         self.policy = policy or store.policy
+        # Confidence decay goes through a ConfidenceStrategy (RFC-0001). Default
+        # to the store's strategy (honoring an injected one); with an explicit
+        # policy override, build one from that policy so custom-policy decay is
+        # preserved.
+        self.confidence = store.confidence if policy is None else PolicyConfidenceStrategy(self.policy)
         self.embedder = embedder
         self.recency_half_life_days = recency_half_life_days
         self.weights = weights or RelevanceWeights()
@@ -79,7 +85,7 @@ class Retriever:
                       workspace: str | None = None,
                       include_superseded: bool = False) -> list[Memory]:
         now = datetime.now(timezone.utc)
-        scorer = (lambda m: self.policy.effective_confidence(m, now)) if apply_decay else (lambda m: m.confidence)
+        scorer = (lambda m: self.confidence.decay(m, now)) if apply_decay else (lambda m: m.confidence)
         items = self.store.all(workspace=workspace, include_superseded=include_superseded)
         return sorted(
             (m for m in items if scorer(m) >= threshold),
@@ -160,7 +166,7 @@ class Retriever:
         for m in candidates:
             sem = max(0.0, cosine(qvec, self._vector_for(m)))
             rec = _recency_boost(m, now, self.recency_half_life_days)
-            conf = self.policy.effective_confidence(m, now)
+            conf = self.confidence.decay(m, now)
             results.append(ScoredMemory(m, w.semantic * sem + w.recency * rec + w.confidence * conf))
         return results
 
@@ -175,7 +181,7 @@ class Retriever:
             if overlap == 0:
                 continue
             relevance = overlap / len(q_tokens)
-            conf = self.policy.effective_confidence(m, now)
+            conf = self.confidence.decay(m, now)
             results.append(ScoredMemory(m, 0.7 * relevance + 0.3 * conf))
         return results
 

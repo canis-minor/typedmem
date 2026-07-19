@@ -72,7 +72,7 @@ class SummaryEvolver:
                 continue
             if m.type not in self.cluster_types:
                 continue
-            if store.policy.effective_confidence(m, now) >= self.confidence_floor:
+            if store.confidence.decay(m, now) >= self.confidence_floor:
                 continue
             # Skip memories that are themselves products of summarization,
             # to avoid runaway summarize-of-summaries.

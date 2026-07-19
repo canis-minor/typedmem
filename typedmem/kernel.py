@@ -23,9 +23,9 @@ Replaceable behavior lives behind strategies, each with a default that reproduce
 the historical (pre-v0.8) behavior byte-for-byte:
 
 * ``IdentityStrategy``   — how a memory's dedup/slot identity is computed. Active.
-* ``ConfidenceStrategy`` — governs confidence *reinforcement* on the mutation
-  path today; decay (a read-path calc in ``PolicyEngine.effective_confidence``)
-  is NOT yet routed through it. See ``ConfidenceStrategy`` below.
+* ``ConfidenceStrategy`` — governs confidence *reinforcement* (mutation path)
+  AND *decay* (read path: Retriever scoring, SummaryEvolver staleness). Both
+  route through the strategy; the default delegates to ``PolicyEngine``.
 * ``LifecycleStrategy``  — PROVISIONAL / experimental: defined and attached to
   the store, but not yet consulted for lifecycle validation. Injecting one does
   not change behavior yet.
@@ -81,10 +81,10 @@ class ConfidenceStrategy:
     """How confidence evolves. Split from the kernel so research can swap the
     numbers without touching the mutation machinery.
 
-    Boundary (v0.8): ``reinforce`` IS active — the TransitionEngine's REINFORCE
-    branch calls it. ``decay`` is defined here but the read-path callers
-    (retriever, summary) still call ``PolicyEngine.effective_confidence``
-    directly; routing decay through the strategy is a follow-up."""
+    Both hooks are active in v0.8: ``reinforce`` is called by the
+    TransitionEngine's REINFORCE branch; ``decay`` is called by the Retriever
+    (confidence scoring / ``by_confidence``) and the SummaryEvolver (staleness).
+    The default (``PolicyConfidenceStrategy``) delegates both to ``PolicyEngine``."""
 
     def reinforce(self, c_old: float, c_new: float, new_sources: list[Source]) -> float:
         raise NotImplementedError
