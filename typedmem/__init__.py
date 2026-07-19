@@ -49,6 +49,7 @@ from .policy import (
 )
 from .profiles import DomainProfile, TypeSpec
 from .prompts import PROMPTS
+from .retrieval import RetrievalIntent, TypedRetriever, route_query
 from .retriever import RelevanceWeights, Retriever, ScoredMemory
 from .schema import GoalStatus, Memory, MemoryType
 from .source import Source
@@ -102,6 +103,7 @@ __all__ = [
     "PolicyEngine",
     "PreferenceDriftDetector",
     "RelevanceWeights",
+    "RetrievalIntent",
     "Retriever",
     "RuleBasedExtractor",
     "ScoredMemory",
@@ -114,7 +116,9 @@ __all__ = [
     "TransitionResult",
     "TypePolicy",
     "TypeSpec",
+    "TypedRetriever",
     "__version__",
     "cosine",
     "revert_goal_resolution",
+    "route_query",
 ]
