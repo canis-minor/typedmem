@@ -357,6 +357,25 @@ SummaryEvolver(AnthropicClient(), min_cluster_size=3).evolve(store)
 
 Every action emits a typed `MemoryEvent` into the store's indexed event log — `source="evolver"`, `source_name="goal_resolver"` (etc.), plus `action`, `input_ids`, `output_ids`, `reason`, `timestamp`. Query with `store.history(memory_id)`, `store.timeline(subject=..., source="evolver")`, or `store.changed_since(t)`. No black-box mutations, no `metadata["evolution_history"]` cap to worry about.
 
+## Kernel (v0.8) — governed state transitions
+
+Under the hood, **every** mutation now goes through one funnel. A `Transition` is an inert description of intent; the `TransitionEngine` is the only thing that writes to storage — it validates, resolves conflicts, bumps a persisted `version`, emits the event, and persists. Store `add`/`delete`, conflict resolution, and all three evolvers route through it.
+
+```python
+from typedmem import Transition
+
+# Optimistic concurrency: refuse to clobber a newer state.
+store.apply_transition(Transition(
+    action="update", memory_id=goal.id, expected_version=goal.version,
+    changes={"status": "resolved"}, actor="evolver", actor_name="goal_resolver",
+))
+# → ConcurrencyError if goal.version has moved; LifecycleError on an illegal status
+```
+
+Behavior is injectable via three strategies, each with a default that preserves prior behavior: `IdentityStrategy` (slot/dedup key), `ConfidenceStrategy` (reinforcement + decay), `LifecycleStrategy` (status validation + `is_active`). Public API — all importable from `typedmem`: `Transition`, `TransitionEngine`, `TransitionResult`, `ConcurrencyError`, `LifecycleError`, `IdentityStrategy` / `SlotIdentityStrategy`, `ConfidenceStrategy` / `PolicyConfidenceStrategy`, `LifecycleStrategy` / `DefaultLifecycleStrategy`.
+
+> The kernel API is public but **provisional until v1.0**.
+
 ## CLI
 
 ```bash

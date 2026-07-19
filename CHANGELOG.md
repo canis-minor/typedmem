@@ -2,6 +2,42 @@
 
 All notable changes to TypedMemory.
 
+## [0.8.0] — 2026-07-18
+
+**Governed State Transitions.** TypedMem v0.8 introduces the first complete kernel for deterministic, policy-governed memory evolution (RFC-0001).
+
+### Added
+- `Transition`, an inert description of a proposed state change
+- `TransitionEngine`, the single mutation path for store operations and evolvers
+- optimistic concurrency through persisted memory versions and `expected_version`
+- pluggable `IdentityStrategy`, `ConfidenceStrategy`, and `LifecycleStrategy`
+- lifecycle validation for status transitions (`LifecycleError` on an illegal move)
+- `store.is_active()` backed by lifecycle policy
+- transition events that record the resulting memory version in `payload["version"]`
+
+### Changed
+- store add, update, delete, and conflict handling now route through the kernel
+- `GoalResolver`, `PreferenceDriftDetector`, and `SummaryEvolver` now submit explicit transitions instead of writing directly
+- confidence reinforcement and decay now route through `ConfidenceStrategy`
+- SQLite stores automatically migrate existing databases to add `Memory.version`
+- legacy JSONL and in-memory records load with `version=1`
+
+### Concurrency semantics
+New memories begin at version `1`. Each successful mutation of an existing memory increments its version exactly once. Rejected, ignored, or stale transitions do not modify state.
+
+A transition may supply `expected_version`. If the stored version differs, TypedMem raises `ConcurrencyError` instead of silently overwriting a newer state.
+
+### Compatibility
+The existing public store APIs remain supported. Existing persisted memories are migrated automatically and default to version `1`.
+
+Custom SQLite identity strategies currently use a scan-based lookup path. The default slot identity strategy continues to use the existing index.
+
+### Internal architecture
+`TransitionEngine` is now the sole mutator of persisted memories. Internal `_put` and `_delete` methods are reserved for engine use, and a systemic test guards against mutation bypasses.
+
+### Kernel API
+Public and importable from `typedmem`: `Transition`, `TransitionEngine`, `TransitionResult`, `ConcurrencyError`, `LifecycleError`, `IdentityStrategy`, `SlotIdentityStrategy`, `ConfidenceStrategy`, `PolicyConfidenceStrategy`, `LifecycleStrategy`, `DefaultLifecycleStrategy`. The kernel API is public but **provisional until v1.0**.
+
 ## [0.7.4] — 2026-05-26
 
 **Hotfix: `typedmem-client` now dual-package (ESM + CJS).** v0.7.3 published as ESM-only, which broke every CJS consumer using `require('typedmem-client')` with `ERR_PACKAGE_PATH_NOT_EXPORTED`. This release ships both formats.
