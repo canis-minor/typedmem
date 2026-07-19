@@ -26,9 +26,10 @@ the historical (pre-v0.8) behavior byte-for-byte:
 * ``ConfidenceStrategy`` — governs confidence *reinforcement* (mutation path)
   AND *decay* (read path: Retriever scoring, SummaryEvolver staleness). Both
   route through the strategy; the default delegates to ``PolicyEngine``.
-* ``LifecycleStrategy``  — PROVISIONAL / experimental: defined and attached to
-  the store, but not yet consulted for lifecycle validation. Injecting one does
-  not change behavior yet.
+* ``LifecycleStrategy``  — validates status transitions (the engine calls it on
+  any update that changes ``status``) and backs ``MemoryStore.is_active``. The
+  only hook still owned by ``Memory.__post_init__`` is a new memory's default
+  status (so standalone construction keeps working).
 
 Version invariant (v0.8): a freshly inserted record begins at version 1; every
 successful mutation of an existing record increments its version exactly once;
@@ -57,6 +58,11 @@ if TYPE_CHECKING:
 class ConcurrencyError(RuntimeError):
     """Raised when a Transition's ``expected_version`` does not match the
     stored memory's current version — an optimistic-concurrency conflict."""
+
+
+class LifecycleError(RuntimeError):
+    """Raised when a Transition's status change is not permitted by the
+    store's ``LifecycleStrategy``."""
 
 
 # ── Strategies ────────────────────────────────────────────────────────────
@@ -112,16 +118,23 @@ class LifecycleStrategy:
     policy concern, not a kernel concern — goals, decisions, and preferences
     each want different chains.
 
-    PROVISIONAL (v0.8): defined and attached to the store, but not yet
-    consulted for lifecycle validation or transitions — ``Memory.__post_init__``
-    and ``PolicyEngine.is_active`` still own that behavior. Injecting a custom
-    strategy does NOT change behavior today; wiring is a follow-up increment."""
+    Wired in v0.8: the TransitionEngine calls ``validate_transition`` on any
+    update that changes ``status`` (raising ``LifecycleError`` on an illegal
+    move), and ``MemoryStore.is_active`` delegates to ``is_active``. The one
+    hook NOT yet routed through the strategy is ``initial_status`` — a fresh
+    ``Memory``'s default status is still set by ``Memory.__post_init__`` so that
+    standalone construction (outside a store) keeps working."""
 
     def initial_status(self, m: Memory) -> str | None:
         return m.status
 
     def is_active(self, m: Memory) -> bool:
         return m.superseded_by is None
+
+    def validate_transition(self, memory: Memory, new_status: str | None) -> None:
+        """Raise ``LifecycleError`` if moving ``memory`` to ``new_status`` is not
+        allowed. Base implementation permits everything."""
+        return None
 
 
 class DefaultLifecycleStrategy(LifecycleStrategy):
@@ -134,12 +147,27 @@ class DefaultLifecycleStrategy(LifecycleStrategy):
             return GoalStatus.ACTIVE.value
         return m.status
 
+    _GOAL_STATUSES = {
+        GoalStatus.ACTIVE.value, GoalStatus.RESOLVED.value, GoalStatus.ABANDONED.value,
+    }
+
     def is_active(self, m: Memory) -> bool:
         if m.superseded_by is not None:
             return False
         if m.type == MemoryType.GOAL:
             return m.status == GoalStatus.ACTIVE
         return True
+
+    def validate_transition(self, memory: Memory, new_status: str | None) -> None:
+        # Goals may only move among the known GoalStatus values. Non-goal types
+        # carry free-form status today, so they are unconstrained.
+        if memory.type == MemoryType.GOAL and new_status is not None:
+            status_val = new_status.value if isinstance(new_status, GoalStatus) else new_status
+            if status_val not in self._GOAL_STATUSES:
+                raise LifecycleError(
+                    f"goal {memory.id!r} cannot transition to unknown status "
+                    f"{new_status!r}; allowed: {sorted(self._GOAL_STATUSES)}"
+                )
 
 
 # ── Transition primitive ──────────────────────────────────────────────────
@@ -281,6 +309,10 @@ class TransitionEngine:
                 f"expected version {t.expected_version} for {t.memory_id!r}, "
                 f"but stored version is {m.version}"
             )
+        # Validate a status change BEFORE any mutation, so an illegal transition
+        # leaves the record untouched (no partial mutation, no version bump).
+        if "status" in t.changes:
+            store.lifecycle.validate_transition(m, t.changes["status"])
         for key, value in t.changes.items():
             setattr(m, key, value)
         m.version += 1

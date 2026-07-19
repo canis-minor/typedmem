@@ -18,6 +18,7 @@ from typedmem import (
     IdentityStrategy,
     InMemoryStore,
     JSONLMemoryStore,
+    LifecycleError,
     Memory,
     MemoryType,
     PolicyEngine,
@@ -274,3 +275,36 @@ def test_custom_confidence_decay_is_used_by_retriever():
     assert r.by_confidence(threshold=0.5, apply_decay=True) == []
     # ...but the raw (undecayed) confidence still does.
     assert len(r.by_confidence(threshold=0.5, apply_decay=False)) == 1
+
+
+# ── LifecycleStrategy: status-transition validation + is_active ────────────
+def test_illegal_goal_status_transition_raises_without_mutation():
+    store = InMemoryStore()
+    g = store.add(Memory(MemoryType.GOAL, "ship v1", subject="proj"))
+    assert store.is_active(g) is True
+    with pytest.raises(LifecycleError):
+        store.apply_transition(
+            Transition(action="update", memory_id=g.id, changes={"status": "banana"})
+        )
+    after = store.get(g.id)
+    assert after.status == "active"   # unchanged
+    assert after.version == 1         # no bump on rejected transition
+
+
+def test_valid_goal_status_transition_allowed():
+    store = InMemoryStore()
+    g = store.add(Memory(MemoryType.GOAL, "ship v1", subject="proj"))
+    store.apply_transition(
+        Transition(action="update", memory_id=g.id, changes={"status": "resolved"})
+    )
+    resolved = store.get(g.id)
+    assert resolved.status == "resolved"
+    assert store.is_active(resolved) is False
+
+
+def test_store_is_active_reflects_lifecycle():
+    store = InMemoryStore()
+    fact = store.add(Memory(MemoryType.FACT, "sky is blue", subject="sky"))
+    goal = store.add(Memory(MemoryType.GOAL, "learn colors", subject="kid"))
+    assert store.is_active(fact) is True   # non-goal, not superseded
+    assert store.is_active(goal) is True   # goal defaults to active

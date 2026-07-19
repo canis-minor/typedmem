@@ -169,6 +169,12 @@ class MemoryStore(ABC):
     def get(self, memory_id: str) -> Memory | None:
         return self._get(memory_id)
 
+    def is_active(self, m: Memory) -> bool:
+        """Whether a memory is currently active, per the store's
+        ``LifecycleStrategy`` (default: not superseded, and — for goals —
+        status is ACTIVE)."""
+        return self.lifecycle.is_active(m)
+
     def delete(
         self,
         memory_id: str,
