@@ -4,16 +4,20 @@ stable engineering abstractions from replaceable domain policies.
 The kernel's job is narrow and permanent:
 
 * ``Transition``        — an explicit, inert description of intent to change state.
-* ``TransitionEngine``  — the **canonical mutation path for store operations**.
-  Every public ``add`` / ``delete`` and every conflict resolution flows through
-  ``apply()``: validation, optimistic concurrency (``expected_version``),
-  conflict dispatch, version bump, event emission, and persistence.
+* ``TransitionEngine``  — the **single mutation funnel** for stored memories.
+  Every public ``add`` / ``delete``, every conflict resolution, AND all three
+  mutating evolvers (GoalResolver, PreferenceDriftDetector, SummaryEvolver)
+  route their writes through ``apply()``: validation, optimistic concurrency
+  (``expected_version``), conflict dispatch, version bump, event emission, and
+  persistence.
 
-  NOTE: this is not yet the *only* mutator — evolvers (GoalResolver,
-  PreferenceDriftDetector, SummaryEvolver) still use the legacy internal
-  ``store._put`` path and will be migrated to Transitions in a follow-up. The
-  "single mutation funnel" is the destination that increment reaches, not an
-  invariant enforced today.
+  The store's ``_put`` / ``_delete`` primitives are engine-internal. The only
+  non-engine caller is the store's own one-time legacy-history migration
+  (``_migrate_legacy_history``), a maintenance path that predates the kernel.
+  Application code and plugins must NOT call ``_put`` directly — they submit
+  Transitions. (``SQLiteMemoryStore.set_embedding`` and ``JSONLMemoryStore.compact``
+  touch the embedding column / file layout, not memory content, and are out of
+  scope for the funnel.)
 
 Replaceable behavior lives behind strategies, each with a default that reproduces
 the historical (pre-v0.8) behavior byte-for-byte:

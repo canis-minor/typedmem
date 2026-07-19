@@ -2,7 +2,8 @@
 optimistic concurrency, and pluggable IdentityStrategy."""
 
 import sqlite3
-from datetime import datetime, timezone
+import traceback
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -10,13 +11,19 @@ import pytest
 from typedmem import (
     ConcurrencyError,
     ConflictPolicy,
+    FakeClient,
+    GoalResolver,
+    HashingEmbeddingProvider,
     IdentityStrategy,
     InMemoryStore,
     JSONLMemoryStore,
     Memory,
+    MemoryType,
     PolicyEngine,
+    PreferenceDriftDetector,
     SQLiteMemoryStore,
     Source,
+    SummaryEvolver,
     Transition,
     TypePolicy,
 )
@@ -190,3 +197,57 @@ def test_custom_identity_collapses_by_type():
     store.add(_pref("tea", "green", 0.9))  # same (ws, type) slot → REPLACE
     prefs = store.all()
     assert len(prefs) == 1
+
+
+# ── systemic guard: the engine is the sole mutator ─────────────────────────
+# Sanctioned callers of _put: the TransitionEngine, and the store's own
+# legacy-history migration maintenance path.
+_ALLOWED_PUT_FRAMES = {
+    "_apply_update", "_apply_add", "_apply_create", "_apply_conflict",
+    "_apply_delete", "_migrate_legacy_history",
+}
+
+
+def test_no_mutation_escapes_the_engine():
+    """Across store add/replace/delete AND every mutating evolver, no _put
+    happens without the TransitionEngine (or the sanctioned migration path)
+    on the call stack. Fails if any code reintroduces a direct _put."""
+    store = InMemoryStore()
+
+    # Seed a broad scenario BEFORE installing the spy.
+    store.add(Memory(MemoryType.GOAL, "learn to count to ten", subject="child"))
+    store.add(Memory(MemoryType.EVENT, "child counted to ten today", subject="child"))
+    store.add(_pref("coffee", "black", 0.5))
+    for i in range(4):  # churn to build replace_log for drift
+        store.add(_pref("coffee", f"blend {i}", 0.5 + i * 0.02))
+    old = _now_utc() - timedelta(days=180)
+    for i in range(3):  # stale cluster for summary
+        store.add(Memory(MemoryType.OBSERVATION, f"obs {i}", subject="s",
+                         confidence=0.7, timestamp=old))
+
+    orig_put = store._put
+    offenders: list[str] = []
+
+    def spy(m):
+        frames = {f.name for f in traceback.extract_stack()}
+        if _ALLOWED_PUT_FRAMES.isdisjoint(frames):
+            offenders.append(m.id)
+        return orig_put(m)
+
+    store._put = spy
+    # Store ops
+    store.add(_pref("coffee", "definitive oat", 0.99))   # REPLACE conflict
+    victim = store.add(Memory(MemoryType.FACT, "temp", subject="x"))
+    store.delete(victim.id)
+    # Every mutating evolver
+    GoalResolver(HashingEmbeddingProvider(dim=1024), threshold=0.2).evolve(store)
+    PreferenceDriftDetector(min_replaces=3).evolve(store)
+    SummaryEvolver(FakeClient("condensed"), min_cluster_size=3,
+                   cluster_types=("observation",)).evolve(store)
+    store._put = orig_put
+
+    assert offenders == []
+
+
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)

@@ -81,9 +81,8 @@ class MemoryStore(ABC):
         self.default_workspace = default_workspace
         self.profile = profile
         # RFC-0001 kernel: replaceable policies with behavior-preserving
-        # defaults, plus the canonical mutation path. Public add/delete and
-        # conflict resolution route through ``self.transitions``; evolvers still
-        # use the legacy ``_put`` path until migrated in a follow-up.
+        # defaults, plus the single mutation funnel. Public add/delete, conflict
+        # resolution, and every mutating evolver route through ``self.transitions``.
         self.identity = identity or SlotIdentityStrategy()
         self.confidence = confidence or PolicyConfidenceStrategy(self.policy)
         self.lifecycle = lifecycle or DefaultLifecycleStrategy()
@@ -94,6 +93,12 @@ class MemoryStore(ABC):
         self._migrated_ids: set[str] = set()
 
     # ── Primitives ────────────────────────────────────────────────────────
+    # ``_put`` / ``_delete`` are ENGINE-INTERNAL storage primitives. They perform
+    # no validation, versioning, conflict resolution, or event emission. The only
+    # sanctioned callers are the TransitionEngine and the store's own
+    # ``_migrate_legacy_history`` maintenance path. Application code and plugins
+    # (evolvers) must go through ``add`` / ``delete`` / ``apply_transition`` — a
+    # direct ``_put`` bypasses the audit trail and the version invariant.
     @abstractmethod
     def _put(self, m: Memory) -> None: ...
 
