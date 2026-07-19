@@ -13,7 +13,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-from .base import EvolutionRecord, EvolutionResult, annotate_history, _now
+from ..kernel import Transition
+from .base import EvolutionRecord, EvolutionResult, _now
 
 if TYPE_CHECKING:
     from ..stores.base import MemoryStore
@@ -84,14 +85,28 @@ class PreferenceDriftDetector:
             )
             records.append(record)
             if not dry_run:
-                flags = m.metadata.setdefault("drift_flags", [])
-                flags.append({
+                flag_entry = {
                     "evolver": self.name,
                     "at": now.isoformat(),
                     "recent_replaces": len(recent),
                     "window_days": self.window_days,
-                })
-                annotate_history(store, m, record)
-                m.touch()
-                store._put(m)
+                }
+                # Fresh metadata (append to a copy of the flag list) — never
+                # mutate the loaded memory's dict before the transition.
+                existing_flags = list(m.metadata.get("drift_flags", []))
+                updated_metadata = {
+                    **m.metadata,
+                    "drift_flags": [*existing_flags, flag_entry],
+                }
+                store.apply_transition(
+                    Transition(
+                        action="annotate",
+                        memory_id=m.id,
+                        expected_version=m.version,
+                        changes={"metadata": updated_metadata},
+                        actor="evolver",
+                        actor_name=self.name,
+                        reason=reason,
+                    )
+                )
         return EvolutionResult(self.name, records, dry_run)
