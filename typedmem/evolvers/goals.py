@@ -11,7 +11,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ..embeddings import EmbeddingProvider, cosine
-from .base import EvolutionRecord, EvolutionResult, annotate_history
+from ..kernel import Transition
+from .base import EvolutionRecord, EvolutionResult
 
 if TYPE_CHECKING:
     from ..stores.base import MemoryStore
@@ -81,13 +82,26 @@ class GoalResolver:
             )
             records.append(record)
             if not dry_run:
-                goal.metadata["previous_status"] = goal.status or "active"
-                goal.metadata["resolved_by"] = best.memory_id
-                goal.metadata["resolved_score"] = best.score
-                goal.status = "resolved"
-                annotate_history(store, goal, record)
-                goal.touch()
-                store._put(goal)
+                # Build a fresh metadata value — never mutate the loaded goal's
+                # dict before the transition succeeds (optimistic concurrency).
+                updated_metadata = {
+                    **goal.metadata,
+                    "previous_status": goal.status or "active",
+                    "resolved_by": best.memory_id,
+                    "resolved_score": best.score,
+                }
+                store.apply_transition(
+                    Transition(
+                        action="resolve",
+                        memory_id=goal.id,
+                        expected_version=goal.version,
+                        changes={"status": "resolved", "metadata": updated_metadata},
+                        actor="evolver",
+                        actor_name=self.name,
+                        evidence=[best.memory_id],
+                        reason=reason,
+                    )
+                )
         return EvolutionResult(self.name, records, dry_run)
 
     def _best_match(self, qvec, candidates, cand_vecs) -> _Match | None:
@@ -108,20 +122,25 @@ def revert(store: "MemoryStore", goal_id: str) -> bool:
     m = store.get(goal_id)
     if m is None or m.type != "goal":
         return False
-    prev = m.metadata.pop("previous_status", None)
-    if prev is None:
+    if "previous_status" not in m.metadata:
         return False
-    m.status = prev
-    m.metadata.pop("resolved_by", None)
-    m.metadata.pop("resolved_score", None)
-    revert_record = EvolutionRecord(
-        evolver="goal_resolver",
-        action="revert",
-        input_ids=[goal_id],
-        output_ids=[goal_id],
-        reason=f"restored status to {prev!r}",
+    prev = m.metadata["previous_status"]
+    # Fresh metadata with the resolution annotations dropped — no in-place
+    # mutation before the transition. Uses the goal's CURRENT version, so a
+    # resolve→revert sequence is v1 → v2 → v3.
+    updated_metadata = {
+        k: v for k, v in m.metadata.items()
+        if k not in ("previous_status", "resolved_by", "resolved_score")
+    }
+    store.apply_transition(
+        Transition(
+            action="revert",
+            memory_id=goal_id,
+            expected_version=m.version,
+            changes={"status": prev, "metadata": updated_metadata},
+            actor="evolver",
+            actor_name="goal_resolver",
+            reason=f"restored status to {prev!r}",
+        )
     )
-    annotate_history(store, m, revert_record)
-    m.touch()
-    store._put(m)
     return True

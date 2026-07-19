@@ -261,8 +261,12 @@ class TransitionEngine:
             setattr(m, key, value)
         m.version += 1
         m.touch()
+        # Evidence (e.g. the memory ids that justified an evolver's change) is
+        # recorded in the event's input_ids alongside the target, matching the
+        # legacy annotate_history audit shape.
+        input_ids = [m.id, *t.evidence] if t.evidence else [m.id]
         self._emit(
-            m, action=t.action, input_ids=[m.id], output_ids=[m.id],
+            m, action=t.action, input_ids=input_ids, output_ids=[m.id],
             reason=t.reason, actor=t.actor, actor_name=t.actor_name,
         )
         store._put(m)
