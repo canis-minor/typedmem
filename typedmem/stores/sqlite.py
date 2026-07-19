@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS memories (
     metadata      TEXT NOT NULL DEFAULT '{}',
     updated_at    TEXT NOT NULL,
     status        TEXT,
+    version       INTEGER NOT NULL DEFAULT 1,
     embedder_id   TEXT,
     embedding     TEXT
 )
@@ -86,6 +87,8 @@ _v04a_COLUMNS: list[tuple[str, str]] = [
     ("sources",       "ALTER TABLE memories ADD COLUMN sources TEXT NOT NULL DEFAULT '[]'"),
     ("workspace",     "ALTER TABLE memories ADD COLUMN workspace TEXT NOT NULL DEFAULT 'default'"),
     ("superseded_by", "ALTER TABLE memories ADD COLUMN superseded_by TEXT"),
+    # v0.8 (RFC-0001): optimistic-concurrency version. Old rows migrate to 1.
+    ("version",       "ALTER TABLE memories ADD COLUMN version INTEGER NOT NULL DEFAULT 1"),
 ]
 
 
@@ -133,6 +136,7 @@ def _row_to_memory(row: sqlite3.Row) -> Memory:
     sources_json = row["sources"] if "sources" in cols else "[]"
     workspace = row["workspace"] if "workspace" in cols else "default"
     superseded_by = row["superseded_by"] if "superseded_by" in cols else None
+    version = row["version"] if "version" in cols and row["version"] is not None else 1
 
     sources = [Source.from_dict(s) for s in json.loads(sources_json or "[]")]
 
@@ -150,6 +154,7 @@ def _row_to_memory(row: sqlite3.Row) -> Memory:
         metadata=json.loads(row["metadata"]),
         updated_at=datetime.fromisoformat(row["updated_at"]),
         status=row["status"] if row["status"] else None,
+        version=version,
     )
     if "embedding" in cols and row["embedding"]:
         m.metadata["_embedding"] = json.loads(row["embedding"])
@@ -183,8 +188,14 @@ class SQLiteMemoryStore(MemoryStore):
         *,
         default_workspace: str = "default",
         profile=None,
+        identity=None,
+        confidence=None,
+        lifecycle=None,
     ) -> None:
-        super().__init__(policy, default_workspace=default_workspace, profile=profile)
+        super().__init__(
+            policy, default_workspace=default_workspace, profile=profile,
+            identity=identity, confidence=confidence, lifecycle=lifecycle,
+        )
         self.path = str(path)
         if self.path != ":memory:":
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
@@ -202,9 +213,9 @@ class SQLiteMemoryStore(MemoryStore):
             """
             INSERT INTO memories
               (id, type, content, confidence, timestamp, subject, tags, sources,
-               workspace, superseded_by, metadata, updated_at, status,
+               workspace, superseded_by, metadata, updated_at, status, version,
                embedder_id, embedding)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               type=excluded.type, content=excluded.content,
               confidence=excluded.confidence, timestamp=excluded.timestamp,
@@ -212,7 +223,7 @@ class SQLiteMemoryStore(MemoryStore):
               sources=excluded.sources, workspace=excluded.workspace,
               superseded_by=excluded.superseded_by,
               metadata=excluded.metadata, updated_at=excluded.updated_at,
-              status=excluded.status,
+              status=excluded.status, version=excluded.version,
               embedder_id=COALESCE(excluded.embedder_id, memories.embedder_id),
               embedding=COALESCE(excluded.embedding, memories.embedding)
             """,
@@ -223,6 +234,7 @@ class SQLiteMemoryStore(MemoryStore):
                 m.workspace, m.superseded_by,
                 json.dumps(m.metadata), m.updated_at.isoformat(),
                 m.status,                              # already a string
+                m.version,
                 emb_id, json.dumps(emb) if emb is not None else None,
             ),
         )

@@ -58,6 +58,12 @@ class Memory:
     updated_at: datetime = field(default_factory=_now)
     status: str | None = None  # goal-specific today; profile-defined statuses later
 
+    # v0.8 (RFC-0001 kernel): monotonic version for optimistic concurrency.
+    # Starts at 1 on a fresh memory; the TransitionEngine bumps it on every
+    # stored mutation. Old records (JSONL/SQLite) without the field migrate to
+    # 1 transparently via ``from_dict``/column default.
+    version: int = 1
+
     def __post_init__(self) -> None:
         # Accept MemoryType enum or any string; canonicalize to string.
         if isinstance(self.type, MemoryType):

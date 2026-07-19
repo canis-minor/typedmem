@@ -12,6 +12,16 @@ from datetime import datetime
 from typing import Iterable, Iterator
 
 from ..events import EVENT_SOURCES, EventSource, MemoryEvent
+from ..kernel import (
+    ConfidenceStrategy,
+    DefaultLifecycleStrategy,
+    IdentityStrategy,
+    LifecycleStrategy,
+    PolicyConfidenceStrategy,
+    SlotIdentityStrategy,
+    Transition,
+    TransitionEngine,
+)
 from ..policy import ConflictAction, ConflictPolicy, PolicyEngine
 from ..schema import Memory, MemoryType
 
@@ -45,6 +55,9 @@ def _record_lifecycle_event(
         reason=reason,
         input_ids=list(input_ids),
         output_ids=list(output_ids),
+        # Record the resulting version so the timeline is a full audit trail
+        # (RFC-0001 version invariant).
+        payload={"version": m.version},
     )
     store._append_event(event)
 
@@ -60,10 +73,21 @@ class MemoryStore(ABC):
         *,
         default_workspace: str = "default",
         profile: "DomainProfile | None" = None,
+        identity: IdentityStrategy | None = None,
+        confidence: ConfidenceStrategy | None = None,
+        lifecycle: LifecycleStrategy | None = None,
     ) -> None:
         self.policy = policy or PolicyEngine()
         self.default_workspace = default_workspace
         self.profile = profile
+        # RFC-0001 kernel: replaceable policies with behavior-preserving
+        # defaults, plus the canonical mutation path. Public add/delete and
+        # conflict resolution route through ``self.transitions``; evolvers still
+        # use the legacy ``_put`` path until migrated in a follow-up.
+        self.identity = identity or SlotIdentityStrategy()
+        self.confidence = confidence or PolicyConfidenceStrategy(self.policy)
+        self.lifecycle = lifecycle or DefaultLifecycleStrategy()
+        self.transitions = TransitionEngine(self)
         # Lazily-migrated memory ids — keys whose legacy
         # ``metadata["evolution_history"]`` has been folded into the event
         # log. We only migrate once per memory per process.
@@ -118,29 +142,11 @@ class MemoryStore(ABC):
                 raise ValueError(
                     f"profile {self.profile.name!r} rejected memory: {errors}"
                 )
-        if m.subject is None:
-            self._put(m)
-            _record_lifecycle_event(
-                self, m, action="added",
-                input_ids=[m.id], output_ids=[m.id], reason="",
-                source=event_source, source_name=event_source_name,
+        return self.transitions.apply(
+            Transition(
+                action="add", memory=m,
+                actor=event_source, actor_name=event_source_name,
             )
-            return m
-
-        existing = self._find_same_slot(m.workspace, m.type, m.subject)
-        if existing is None:
-            self._put(m)
-            _record_lifecycle_event(
-                self, m, action="added",
-                input_ids=[m.id], output_ids=[m.id], reason="",
-                source=event_source, source_name=event_source_name,
-            )
-            return m
-
-        action = self.policy.resolve(existing, m)
-        return self._apply_conflict(
-            existing, m, action,
-            event_source=event_source, event_source_name=event_source_name,
         )
 
     def add_many(
@@ -173,15 +179,18 @@ class MemoryStore(ABC):
                 f"event_source must be one of {sorted(EVENT_SOURCES)}, "
                 f"got {event_source!r}"
             )
-        existing = self._get(memory_id)
-        if existing is None:
-            return False
-        _record_lifecycle_event(
-            self, existing, action="deleted",
-            input_ids=[memory_id], output_ids=[], reason="",
-            source=event_source, source_name=event_source_name,
+        return self.transitions.apply(
+            Transition(
+                action="delete", memory_id=memory_id,
+                actor=event_source, actor_name=event_source_name,
+            )
         )
-        return self._delete(memory_id)
+
+    def apply_transition(self, t: Transition):
+        """Apply a kernel ``Transition`` directly. This is the low-level funnel
+        the public ``add``/``delete`` build on; plugins (evolvers) should route
+        their mutations through here rather than calling ``_put`` directly."""
+        return self.transitions.apply(t)
 
     def all(self, *, workspace: str | None = None, include_superseded: bool = False) -> list[Memory]:
         ws = workspace if workspace is not None else self.default_workspace
@@ -267,6 +276,24 @@ class MemoryStore(ABC):
         return [m for m in self._iter()
                 if m.workspace == ws and m.metadata.get("drift_flags")]
 
+    def find_slot(self, m: Memory) -> Memory | None:
+        """Return the live memory occupying the same identity slot as ``m``, or
+        None. Uses the store's ``IdentityStrategy``. With the default
+        ``SlotIdentityStrategy`` this preserves historical behavior exactly —
+        subject-less memories never collide, and the fast ``_find_same_slot``
+        path (indexed on SQLite) is used. A custom identity strategy falls back
+        to a key-based scan."""
+        if isinstance(self.identity, SlotIdentityStrategy):
+            if m.subject is None:
+                return None
+            return self._find_same_slot(m.workspace, m.type, m.subject)
+        key = self.identity.key_for(m)
+        for cand in self._iter():
+            if (cand.superseded_by is None and cand.id != m.id
+                    and self.identity.key_for(cand) == key):
+                return cand
+        return None
+
     def _find_same_slot(self, workspace: str, t: MemoryType, subject: str) -> Memory | None:
         for m in self._iter():
             if (m.type == t and m.subject == subject and m.workspace == workspace
@@ -333,108 +360,13 @@ class MemoryStore(ABC):
         event_source: EventSource = "store",
         event_source_name: str | None = None,
     ) -> Memory:
-        p = action.policy
-
-        if p is ConflictPolicy.IGNORE:
-            return existing
-
-        if p is ConflictPolicy.KEEP_BOTH:
-            self._put(incoming)
-            _record_lifecycle_event(
-                self, incoming, action="added",
-                input_ids=[incoming.id], output_ids=[incoming.id],
-                reason="kept-both alongside existing",
-                source=event_source, source_name=event_source_name,
-            )
-            return incoming
-
-        if p is ConflictPolicy.REPLACE:
-            old_content = existing.content
-            existing.content = incoming.content
-            existing.confidence = incoming.confidence
-            existing.timestamp = incoming.timestamp
-            existing.tags = list({*existing.tags, *incoming.tags})
-            if incoming.sources:
-                existing.sources = list(incoming.sources)
-            existing.metadata = {**existing.metadata, **incoming.metadata}
-            from datetime import datetime, timezone
-            log = existing.metadata.setdefault("replace_log", [])
-            log.append(datetime.now(timezone.utc).isoformat())
-            if len(log) > 20:
-                del log[:-20]
-            existing.metadata["replace_count"] = existing.metadata.get("replace_count", 0) + 1
-            _record_lifecycle_event(
-                self, existing, action="replaced",
-                input_ids=[existing.id], output_ids=[existing.id],
-                reason=f"content updated (was: {old_content[:60]!r})",
-                source=event_source, source_name=event_source_name,
-            )
-            existing.touch()
-            self._put(existing)
-            return existing
-
-        if p is ConflictPolicy.SUPERSEDE:
-            existing.superseded_by = incoming.id
-            _record_lifecycle_event(
-                self, existing, action="superseded",
-                input_ids=[existing.id], output_ids=[incoming.id],
-                reason=f"superseded by new {incoming.type}",
-                source=event_source, source_name=event_source_name,
-            )
-            _record_lifecycle_event(
-                self, incoming, action="supersedes",
-                input_ids=[existing.id, incoming.id], output_ids=[incoming.id],
-                reason=f"supersedes earlier {existing.type}: {existing.content[:60]!r}",
-                source=event_source, source_name=event_source_name,
-            )
-            existing.touch()
-            self._put(existing)
-            self._put(incoming)
-            return incoming
-
-        if p is ConflictPolicy.REINFORCE:
-            seen = {s.key() for s in existing.sources}
-            new_unique = [s for s in incoming.sources if s.key() not in seen]
-            existing.sources.extend(new_unique)
-            existing.confidence = self.policy.reinforce_confidence(
-                existing.confidence, incoming.confidence, new_unique or incoming.sources,
-            )
-            existing.tags = list({*existing.tags, *incoming.tags})
-            if incoming.confidence > existing.confidence:
-                existing.content = incoming.content
-            if new_unique:
-                src_ids = ", ".join(s.document_id for s in new_unique)
-                _record_lifecycle_event(
-                    self, existing, action="reinforced",
-                    input_ids=[existing.id], output_ids=[existing.id],
-                    reason=f"+{len(new_unique)} source(s): {src_ids}",
-                    source=event_source, source_name=event_source_name,
-                )
-            existing.touch()
-            self._put(existing)
-            return existing
-
-        if p is ConflictPolicy.FLAG:
-            existing.metadata.setdefault("conflicts_with", []).append(incoming.id)
-            incoming.metadata.setdefault("conflicts_with", []).append(existing.id)
-            _record_lifecycle_event(
-                self, existing, action="flagged",
-                input_ids=[existing.id, incoming.id], output_ids=[existing.id],
-                reason=f"cross-linked to new {incoming.type}: {incoming.content[:60]!r}",
-                source=event_source, source_name=event_source_name,
-            )
-            _record_lifecycle_event(
-                self, incoming, action="flagged",
-                input_ids=[existing.id, incoming.id], output_ids=[incoming.id],
-                reason=f"cross-linked to existing {existing.type}: {existing.content[:60]!r}",
-                source=event_source, source_name=event_source_name,
-            )
-            existing.touch()
-            self._put(existing)
-            self._put(incoming)
-            return incoming
-
-        raise ValueError(f"unhandled ConflictPolicy: {p}")
+        """Backward-compatible shim. Conflict dispatch now lives in the kernel
+        ``TransitionEngine`` (the single mutation funnel); this delegates so any
+        existing caller keeps working."""
+        return self.transitions._apply_conflict(
+            existing, incoming, action,
+            actor=event_source, actor_name=event_source_name,
+        )
 
     def __iter__(self) -> Iterator[Memory]:
         return self._iter()

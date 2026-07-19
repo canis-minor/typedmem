@@ -35,8 +35,14 @@ class JSONLMemoryStore(MemoryStore):
         *,
         default_workspace: str = "default",
         profile=None,
+        identity=None,
+        confidence=None,
+        lifecycle=None,
     ) -> None:
-        super().__init__(policy, default_workspace=default_workspace, profile=profile)
+        super().__init__(
+            policy, default_workspace=default_workspace, profile=profile,
+            identity=identity, confidence=confidence, lifecycle=lifecycle,
+        )
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.events_path = _events_path(self.path)
