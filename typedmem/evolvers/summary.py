@@ -12,10 +12,11 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from ..kernel import Transition
 from ..llm.base import LLMClient
 from ..schema import Memory
 from ..source import Source
-from .base import EvolutionRecord, EvolutionResult, annotate_history
+from .base import EvolutionRecord, EvolutionResult
 
 if TYPE_CHECKING:
     from ..stores.base import MemoryStore
@@ -154,11 +155,6 @@ class SummaryEvolver:
                     "summarizer": self.name,
                 },
             )
-            # Bypass store.add() because a profile-bound store might reject
-            # ``target_type`` when used on a non-personal profile; the summary
-            # is library-generated and should not be subject to LLM-style
-            # validation. Callers who want strict mode can wrap or subclass.
-            store._put(summary)
             record = EvolutionRecord(
                 evolver=self.name,
                 action="create",
@@ -167,13 +163,34 @@ class SummaryEvolver:
                 reason=f"summarized {len(cluster)} stale memories into one {self.target_type}",
             )
             records.append(record)
-            annotate_history(store, summary, record)
-            # Annotate each original (forward link to summary + audit trail)
-            # so subsequent runs skip them in cluster scanning.
+            # Raw create: bypasses conflict resolution AND profile validation on
+            # purpose — a profile-bound store might reject ``target_type``, and
+            # the summary must not merge into an existing slot. The library owns
+            # this memory, so it goes in as-is (v1) through the kernel.
+            store.apply_transition(
+                Transition(
+                    action="create",
+                    memory=summary,
+                    actor="evolver",
+                    actor_name=self.name,
+                    evidence=input_ids,
+                    reason=record.reason,
+                )
+            )
+            # Forward-link each original to the summary so subsequent runs skip
+            # them. Fresh metadata — never mutate the loaded memory in place.
             for m in cluster:
-                m.metadata["summarized_by"] = summary.id
-                annotate_history(store, m, record)
-                store._put(m)
-            # Update summary again to persist its own annotation.
-            store._put(summary)
+                updated_metadata = {**m.metadata, "summarized_by": summary.id}
+                store.apply_transition(
+                    Transition(
+                        action="annotate",
+                        memory_id=m.id,
+                        expected_version=m.version,
+                        changes={"metadata": updated_metadata},
+                        actor="evolver",
+                        actor_name=self.name,
+                        evidence=[summary.id],
+                        reason=f"folded into summary {summary.id}",
+                    )
+                )
         return EvolutionResult(self.name, records, dry_run)

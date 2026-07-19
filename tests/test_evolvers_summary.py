@@ -1,5 +1,6 @@
 """SummaryEvolver: non-destructive in v0.4c."""
 
+import traceback
 from datetime import timedelta
 
 from typedmem import (
@@ -10,6 +11,10 @@ from typedmem import (
     SummaryEvolver,
 )
 from typedmem.schema import _now
+
+_ENGINE_FRAMES = {
+    "_apply_update", "_apply_add", "_apply_create", "_apply_conflict", "_apply_delete",
+}
 
 
 def _stale_cluster(store, n=3):
@@ -103,3 +108,45 @@ def test_empty_llm_response_skipped():
     assert result.records[0].output_ids == []
     summaries = [m for m in store if "summarizes" in m.metadata]
     assert summaries == []
+
+
+# ── v0.8: routed through the TransitionEngine ──────────────────────────────
+def test_summary_evolver_never_calls_put_directly():
+    store = InMemoryStore()
+    _stale_cluster(store, n=3)  # seed before installing the spy
+    orig_put = store._put
+    direct_calls: list[str] = []
+
+    def spy(m):
+        frames = {f.name for f in traceback.extract_stack()}
+        if _ENGINE_FRAMES.isdisjoint(frames):
+            direct_calls.append(m.id)
+        return orig_put(m)
+
+    store._put = spy
+    result = SummaryEvolver(FakeClient("a condensed summary"), min_cluster_size=3).evolve(store)
+    store._put = orig_put
+    assert len(result.records) == 1     # a summary was actually created
+    assert direct_calls == []           # ...and every _put went via the engine
+
+
+def test_summary_created_at_v1_and_originals_bumped():
+    store = InMemoryStore()
+    _stale_cluster(store, n=3)
+    original_versions = {m.id: m.version for m in store}
+    SummaryEvolver(FakeClient("a condensed summary"), min_cluster_size=3).evolve(store)
+
+    summary = next(m for m in store if "summarizes" in m.metadata)
+    assert summary.version == 1  # raw create begins at version 1
+
+    # Each original was annotated with summarized_by → exactly one version bump.
+    for oid, v0 in original_versions.items():
+        after = store.get(oid)
+        assert after.metadata.get("summarized_by") == summary.id
+        assert after.version == v0 + 1
+
+    # The summary's create event is recorded with action "create".
+    create_events = [e for e in store.history(summary.id) if e.action == "create"]
+    assert len(create_events) == 1
+    assert create_events[0].source == "evolver"
+    assert create_events[0].source_name == "summary_evolver"

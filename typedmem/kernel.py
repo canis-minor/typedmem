@@ -188,6 +188,8 @@ class TransitionEngine:
     def apply(self, t: Transition):
         if t.action == "add":
             return self._apply_add(t)
+        if t.action == "create":
+            return self._apply_create(t)
         if t.action == "delete":
             return self._apply_delete(t)
         return self._apply_update(t)
@@ -232,6 +234,24 @@ class TransitionEngine:
         return self._apply_conflict(
             existing, m, action, actor=t.actor, actor_name=t.actor_name,
         )
+
+    # -- create ------------------------------------------------------------
+    def _apply_create(self, t: Transition) -> Memory:
+        """Raw insert of a NEW memory, bypassing identity/conflict resolution
+        AND profile validation. Used by plugins (e.g. SummaryEvolver) that
+        generate library-side memories which must neither be merged into an
+        existing slot nor rejected by a domain profile. The record begins at
+        version 1; ``evidence`` becomes the event's input_ids."""
+        store = self.store
+        m = t.memory
+        assert m is not None, "create transition requires a memory"
+        store._put(m)
+        self._emit(
+            m, action="create",
+            input_ids=list(t.evidence) or [m.id], output_ids=[m.id],
+            reason=t.reason, actor=t.actor, actor_name=t.actor_name,
+        )
+        return m
 
     # -- delete ------------------------------------------------------------
     def _apply_delete(self, t: Transition) -> bool:
