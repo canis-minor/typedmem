@@ -5,6 +5,9 @@
 **Contract-driven memory for AI agents.**
 *Typed schemas. Explicit conflict policies. Structured provenance. Typed event timeline.*
 
+> **Boundary.** TypedMem is a persistent memory representation. It does not model
+> execution provenance or semantic reasoning.
+
 [![CI](https://github.com/canis-minor/typedmem/actions/workflows/ci.yml/badge.svg)](https://github.com/canis-minor/typedmem/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/typedmem.svg)](https://pypi.org/project/typedmem/)
 [![Python](https://img.shields.io/pypi/pyversions/typedmem.svg)](https://pypi.org/project/typedmem/)
